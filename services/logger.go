@@ -31,6 +31,7 @@ func (l LoggerProvider) Provide() Logger {
 
 func (l *logger) SaveLog(dto dto.Log) (*models.Log, error) {
 	doubleEncryptedLog, err := l.cryptoService.EncryptOwnerLevel(dto.EncryptedStackTrace)
+	println(l.cryptoService.DecryptOwnerLevel(doubleEncryptedLog))
 
 	if err != nil {
 		return nil, err

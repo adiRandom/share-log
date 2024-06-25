@@ -16,7 +16,7 @@ func (d DatabaseProvider) Provide() *gorm.DB {
 	}
 
 	// Run migrations
-	err = db.AutoMigrate(getMigrations()...)
+	err = db.AutoMigrate(getEntities()...)
 	if err != nil {
 		return nil
 	}
@@ -24,8 +24,9 @@ func (d DatabaseProvider) Provide() *gorm.DB {
 	return db
 }
 
-func getMigrations() []interface{} {
+func getEntities() []interface{} {
 	return []interface{}{
 		&models.Log{},
+		&models.EncryptionKey{},
 	}
 }

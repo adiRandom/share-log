@@ -16,4 +16,5 @@ func InitDi() {
 	lib.RegisterProvider[services.Logger](di.Container, services.LoggerProvider{})
 	lib.RegisterProvider[repository.LogRepository](di.Container, repository.LogRepositoryProvider{})
 	lib.RegisterProvider[log.LogController](di.Container, log.LogControllerProvider{})
+	lib.RegisterProvider[repository.KeyRepository](di.Container, repository.KeyRepositoryProvider{})
 }
