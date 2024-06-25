@@ -1,4 +1,4 @@
-package models
+package encryption
 
 import (
 	eciesgo "github.com/ecies/go/v2"
@@ -7,13 +7,13 @@ import (
 
 type EncryptionKey struct {
 	gorm.Model
-	PublicKeyHex           string
-	EncryptedPrivateKeyHex string
+	PublicKey  PublicKey
+	PrivateKey PrivateKey
 }
 
 func NewEncryptionKey(key eciesgo.PrivateKey) EncryptionKey {
 	return EncryptionKey{
-		PublicKeyHex:           key.PublicKey.Hex(false),
-		EncryptedPrivateKeyHex: key.Hex(),
+		PublicKey:  PublicKey{key.PublicKey},
+		PrivateKey: PrivateKey{hex: key.Hex()},
 	}
 }

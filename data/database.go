@@ -4,6 +4,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"shareLog/models"
+	"shareLog/models/encryption"
 )
 
 type DatabaseProvider struct {
@@ -27,6 +28,6 @@ func (d DatabaseProvider) Provide() *gorm.DB {
 func getEntities() []interface{} {
 	return []interface{}{
 		&models.Log{},
-		&models.EncryptionKey{},
+		&encryption.EncryptionKey{},
 	}
 }

@@ -4,7 +4,7 @@ import (
 	eciesgo "github.com/ecies/go/v2"
 	"shareLog/data/repository"
 	"shareLog/di"
-	"shareLog/models"
+	"shareLog/models/encryption"
 )
 
 type crypto struct {
@@ -46,7 +46,7 @@ func (c *crypto) getPrivateKey() *eciesgo.PrivateKey {
 	key, _ := c.keyRepository.GetFirstKey()
 	// For testing purposes
 	// Normally the key should be encrypted
-	privateKey, _ := eciesgo.NewPrivateKeyFromHex(key.EncryptedPrivateKeyHex)
+	privateKey, _ := key.PrivateKey.Key()
 	return privateKey
 }
 
@@ -57,7 +57,7 @@ func (c *crypto) generateKey() *eciesgo.PrivateKey {
 		return nil
 	}
 
-	keyModel := models.NewEncryptionKey(*key)
+	keyModel := encryption.NewEncryptionKey(*key)
 
 	err = c.keyRepository.Create(&keyModel)
 	if err != nil {
