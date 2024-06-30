@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"golang.org/x/crypto/bcrypt"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/models"
@@ -46,7 +47,7 @@ func (u *userService) SignUpWithEmail(signupDto dto.Signup) (*models.User, error
 		Email:             signupDto.Email,
 		PasswordHash:      hashedPassword,
 		PasswordSalt:      salt,
-		EncryptionKey:     &encryptionKey,
+		EncryptionKey:     encryptionKey,
 		EncryptionKeySalt: encryptionKeySalt,
 	}
 	err = u.userRepository.Save(&user)
@@ -63,12 +64,7 @@ func (u *userService) SignInWithEmail(email string, password string) (*models.Us
 		return nil, err
 	}
 
-	hashedPassword, err := u.cryptoService.PasswordDerivation(password, user.PasswordSalt)
-	if err != nil {
-		return nil, err
-	}
-
-	if hashedPassword != user.PasswordHash {
+	if err := bcrypt.CompareHashAndPassword([]byte(password), []byte(user.PasswordHash)); err != nil {
 		return nil, errors.New("Wrong credentials")
 	}
 

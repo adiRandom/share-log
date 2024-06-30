@@ -1,30 +1,57 @@
 package services
 
 import (
+	"errors"
 	eciesgo "github.com/ecies/go/v2"
+	"golang.org/x/crypto/bcrypt"
+	"math/rand"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/models"
 	"shareLog/models/encryption"
 )
 
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const saltSize = 32
+
 type crypto struct {
 	keyRepository repository.KeyRepository
 }
 
-func (c *crypto) GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (encryption.EncryptionKey, error) {
-	//TODO implement me
-	panic("implement me")
+func (c *crypto) GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (*encryption.EncryptionKey, error) {
+	masterKey, err := c.getMasterKey(inviteJWE)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Encrypt the key and save it in the db
+	return &masterKey, nil
+}
+
+func (c *crypto) getMasterKey(inviteJwe string) (encryption.EncryptionKey, error) {
+	// TODO: Decrypt the inviteJwe and extract the master key
+
+	// TODO: Mock code
+	key := c.keyRepository.GetFirst(encryption.OWNER_PUBLIC_KEY)
+	if key == nil {
+		return encryption.EncryptionKey{}, errors.New("master key not found")
+	}
+	return *key, nil
 }
 
 func (c *crypto) PasswordDerivation(password string, salt string) (string, error) {
-	//TODO implement me
-	panic("implement me")
+	saltedPassword := password + salt
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(saltedPassword), bcrypt.DefaultCost)
+	return string(hashedPassword), err
 }
 
 func (c *crypto) GenerateSalt() string {
-	//TODO implement me
-	panic("implement me")
+	saltBytes := make([]byte, saltSize)
+
+	for i := range saltBytes {
+		saltBytes[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(saltBytes)
 }
 
 type Crypto interface {
@@ -41,7 +68,7 @@ type Crypto interface {
 		@param encryptionKey: The key used to encrypt the master private key for the new user
 		@return The encryption key of the user that created the invite
 	*/
-	GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (encryption.EncryptionKey, error)
+	GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (*encryption.EncryptionKey, error)
 }
 
 type CryptoProvider struct {
