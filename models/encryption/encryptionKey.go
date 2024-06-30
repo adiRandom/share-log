@@ -8,12 +8,17 @@ import (
 type EncryptionKey struct {
 	gorm.Model
 	PublicKey  PublicKey
-	PrivateKey PrivateKey
+	PrivateKey *PrivateKey
+	Type       string
 }
+
+const CLIENT_TYPE = "client"
+const OWNER_TYPE = "owner"
+const OWNER_PUBLIC_KEY = "ownerPublicKey"
 
 func NewEncryptionKey(key eciesgo.PrivateKey) EncryptionKey {
 	return EncryptionKey{
 		PublicKey:  PublicKey{key.PublicKey},
-		PrivateKey: PrivateKey{hex: key.Hex()},
+		PrivateKey: &PrivateKey{encryptedHex: key.Hex()},
 	}
 }

@@ -8,7 +8,7 @@ type baseRepository[T any] struct {
 
 type BaseRepository[T any] interface {
 	getDb() *gorm.DB
-	Create(model *T) error
+	Save(model *T) error
 }
 
 func newBaseRepository[T any](db *gorm.DB) baseRepository[T] {
@@ -19,7 +19,7 @@ func newBaseRepository[T any](db *gorm.DB) baseRepository[T] {
 Create saves an entity to the database
 The id of the entity is set by the database on the object passed in
 */
-func (r *baseRepository[T]) Create(model *T) error {
+func (r *baseRepository[T]) Save(model *T) error {
 	return r.db.Create(model).Error
 }
 

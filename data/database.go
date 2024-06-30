@@ -29,5 +29,6 @@ func getEntities() []interface{} {
 	return []interface{}{
 		&models.Log{},
 		&encryption.EncryptionKey{},
+		&models.User{},
 	}
 }

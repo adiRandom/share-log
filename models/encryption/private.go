@@ -7,12 +7,12 @@ import (
 )
 
 type PrivateKey struct {
-	hex string
+	encryptedHex string
 }
 
 func (k *PrivateKey) Key() (*eciesgo.PrivateKey, error) {
-	// TODO: Decrypt the hex and convert it to a private key
-	return eciesgo.NewPrivateKeyFromHex(k.hex)
+	// TODO: Decrypt the encryptedHex and convert it to a private key
+	return eciesgo.NewPrivateKeyFromHex(k.encryptedHex)
 }
 
 func (k *PrivateKey) Scan(src any) error {
@@ -21,12 +21,12 @@ func (k *PrivateKey) Scan(src any) error {
 		return errors.New("private key must be a string")
 	}
 
-	*k = PrivateKey{hex: hex}
+	*k = PrivateKey{encryptedHex: hex}
 	return nil
 }
 
 func (k *PrivateKey) Value() (driver.Value, error) {
-	return k.hex, nil
+	return k.encryptedHex, nil
 }
 
 func (p *PrivateKey) GormDataType() string {
