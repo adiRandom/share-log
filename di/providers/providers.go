@@ -2,21 +2,27 @@ package providers
 
 import (
 	"gorm.io/gorm"
+	"shareLog/controllers"
 	"shareLog/controllers/log"
 	"shareLog/data"
 	"shareLog/data/repository"
 	"shareLog/di"
-	"shareLog/di/lib"
+	"shareLog/di/diLib"
+	"shareLog/middleware"
 	"shareLog/services"
 )
 
 func InitDi() {
-	lib.RegisterProvider[*gorm.DB](di.Container, data.DatabaseProvider{})
-	lib.RegisterProvider[services.Crypto](di.Container, services.CryptoProvider{})
-	lib.RegisterProvider[services.Logger](di.Container, services.LoggerProvider{})
-	lib.RegisterProvider[repository.LogRepository](di.Container, repository.LogRepositoryProvider{})
-	lib.RegisterProvider[log.LogController](di.Container, log.LogControllerProvider{})
-	lib.RegisterProvider[repository.KeyRepository](di.Container, repository.KeyRepositoryProvider{})
-	lib.RegisterProvider[services.UserService](di.Container, services.UserServiceProvider{})
-	lib.RegisterProvider[repository.UserRepository](di.Container, repository.UserRepositoryProvider{})
+	diLib.RegisterProvider[*gorm.DB](di.Container, data.DatabaseProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[services.Crypto](di.Container, services.CryptoProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[services.Logger](di.Container, services.LoggerProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[repository.LogRepository](di.Container, repository.LogRepositoryProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[log.LogController](di.Container, log.LogControllerProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[repository.KeyRepository](di.Container, repository.KeyRepositoryProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[services.UserService](di.Container, services.UserServiceProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[repository.UserRepository](di.Container, repository.UserRepositoryProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[services.Auth](di.Container, services.AuthProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[middleware.Auth](di.Container, middleware.AuthProvider{}, diLib.SingletonProvider)
+
+	diLib.RegisterProvider[controllers.BaseController](di.Container, controllers.BaseControllerProvider{}, diLib.FactoryProvider)
 }

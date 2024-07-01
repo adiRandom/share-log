@@ -10,7 +10,7 @@ type PrivateKey struct {
 	encryptedHex string
 }
 
-func (k *PrivateKey) Key() (*eciesgo.PrivateKey, error) {
+func (k *PrivateKey) Key(decryptionKey string) (*eciesgo.PrivateKey, error) {
 	// TODO: Decrypt the encryptedHex and convert it to a private key
 	return eciesgo.NewPrivateKeyFromHex(k.encryptedHex)
 }

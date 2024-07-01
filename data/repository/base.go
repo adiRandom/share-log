@@ -1,6 +1,9 @@
 package repository
 
-import "gorm.io/gorm"
+import (
+	"fmt"
+	"gorm.io/gorm"
+)
 
 type baseRepository[T any] struct {
 	db *gorm.DB
@@ -9,6 +12,7 @@ type baseRepository[T any] struct {
 type BaseRepository[T any] interface {
 	getDb() *gorm.DB
 	Save(model *T) error
+	GetById(id uint) *T
 }
 
 func newBaseRepository[T any](db *gorm.DB) baseRepository[T] {
@@ -25,4 +29,17 @@ func (r *baseRepository[T]) Save(model *T) error {
 
 func (r *baseRepository[T]) getDb() *gorm.DB {
 	return r.db
+}
+
+func (r *baseRepository[T]) GetById(id uint) *T {
+	db := r.getDb()
+	var result T
+	err := db.First(&result, id).Error
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil
+	}
+
+	return &result
 }

@@ -3,29 +3,85 @@ package services
 import (
 	"errors"
 	eciesgo "github.com/ecies/go/v2"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 	"math/rand"
+	"shareLog/constants"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/models"
 	"shareLog/models/encryption"
 )
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-const saltSize = 32
-
 type crypto struct {
 	keyRepository repository.KeyRepository
 }
 
-func (c *crypto) GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (*encryption.EncryptionKey, error) {
-	masterKey, err := c.getMasterKey(inviteJWE)
+/*
+	Options used to decrypt a message
+
+	Data - The message to decrypt
+	Usr - The user that has a key that can be used to decrypt this message
+	UsrSymmetricKey - The decryption key held by the user is encrypted in the DB. This is the key to decrypt that master key
+	Level - The encryption Level we are decoding at this step
+*/
+
+type DecryptOptions struct {
+	Data            string
+	Usr             *models.User
+	UsrSymmetricKey string
+	Level           string
+}
+
+type Crypto interface {
+	/*
+		Encrypt the message with the public master key for the Data owners
+	*/
+	EncryptOwnerLevel(data string) (string, error)
+	/*
+		Decrypt a message using the passed options
+	*/
+	DecryptMessage(opt *DecryptOptions) (string, error)
+	PasswordDerivation(password string, salt string) (string, error)
+	GenerateSalt() string
+	/*
+		Extract from the JWE the encryption key of the user that crated the invite
+
+		@param inviteJWE: The JWE that contains the user id of the user that created the invite, the access Level
+		and the key to decrypt the master key for that access Level
+
+		@param encryptionKey: The key used to encrypt the master private key for the new user
+		@return The encryption key of the user that created the invite
+	*/
+	GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (*encryption.EncryptionKey, error)
+	DecodeJWE(jwe *jose.JSONWebEncryption) *jwt.Token
+}
+
+type CryptoProvider struct {
+}
+
+func (c CryptoProvider) Provide() Crypto {
+	keyRepository := di.Get[repository.KeyRepository]()
+	var instance Crypto = &crypto{keyRepository}
+	return instance
+}
+
+func (c *crypto) EncryptOwnerLevel(data string) (string, error) {
+	publicKey := c.keyRepository.GetPublicKeyForDataOwner().PublicKey
+	encryptedBytes, err := eciesgo.Encrypt(publicKey.Key, []byte(data))
+	return string(encryptedBytes), err
+}
+
+func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
+	// TODO: Get the appropriate Level key
+	privateKey, err := opt.Usr.EncryptionKey.PrivateKey.Key(opt.UsrSymmetricKey)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	// TODO: Encrypt the key and save it in the db
-	return &masterKey, nil
+	decryptedBytes, err := eciesgo.Decrypt(privateKey, []byte(opt.Data))
+	return string(decryptedBytes), err
 }
 
 func (c *crypto) getMasterKey(inviteJwe string) (encryption.EncryptionKey, error) {
@@ -46,52 +102,25 @@ func (c *crypto) PasswordDerivation(password string, salt string) (string, error
 }
 
 func (c *crypto) GenerateSalt() string {
-	saltBytes := make([]byte, saltSize)
+	saltBytes := make([]byte, constants.SaltSize)
 
 	for i := range saltBytes {
-		saltBytes[i] = letterBytes[rand.Intn(len(letterBytes))]
+		saltBytes[i] = constants.LetterBytes[rand.Intn(len(constants.LetterBytes))]
 	}
 	return string(saltBytes)
 }
 
-type Crypto interface {
-	EncryptOwnerLevel(data string) (string, error)
-	DecryptOwnerLevel(data string, usr *models.User) (string, error)
-	PasswordDerivation(password string, salt string) (string, error)
-	GenerateSalt() string
-	/*
-		Extract from the JWE the encryption key of the user that crated the invite
-
-		@param inviteJWE: The JWE that contains the user id of the user that created the invite, the access level
-		and the key to decrypt the master key for that access level
-
-		@param encryptionKey: The key used to encrypt the master private key for the new user
-		@return The encryption key of the user that created the invite
-	*/
-	GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (*encryption.EncryptionKey, error)
-}
-
-type CryptoProvider struct {
-}
-
-func (c CryptoProvider) Provide() Crypto {
-	keyRepository := di.Get[repository.KeyRepository]()
-	var instance Crypto = &crypto{keyRepository}
-	return instance
-}
-
-func (c *crypto) EncryptOwnerLevel(data string) (string, error) {
-	publicKey := c.keyRepository.GetPublicKeyForDataOwner().PublicKey
-	encryptedBytes, err := eciesgo.Encrypt(publicKey.Key, []byte(data))
-	return string(encryptedBytes), err
-}
-
-func (c *crypto) DecryptOwnerLevel(data string, usr *models.User) (string, error) {
-	privateKey, err := usr.EncryptionKey.PrivateKey.Key()
+func (c *crypto) GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (*encryption.EncryptionKey, error) {
+	masterKey, err := c.getMasterKey(inviteJWE)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	decryptedBytes, err := eciesgo.Decrypt(privateKey, []byte(data))
-	return string(decryptedBytes), err
+	// TODO: Encrypt the key and save it in the db
+	return &masterKey, nil
+}
+
+func (c *crypto) DecodeJWE(jwe *jose.JSONWebEncryption) *jwt.Token {
+	//TODO implement me
+	panic("implement me")
 }

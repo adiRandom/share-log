@@ -20,3 +20,13 @@ func NewLog(doubleEncryptedStackTrace string) Log {
 		DoubleEncryptedStackTrace: doubleEncryptedStackTrace,
 	}
 }
+
+type DecryptedLog struct {
+	StackTrace string
+}
+
+func NewDecryptedLog(stackTrace string) DecryptedLog {
+	return DecryptedLog{
+		StackTrace: stackTrace,
+	}
+}

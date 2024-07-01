@@ -1,18 +1,22 @@
-package lib
+package diLib
 
 type Container struct {
 	store []interface{}
 	// Holds slice of Provider
-	providers []interface{}
+	providers []storedProvider
 }
 
 func NewContainer() *Container {
 	return &Container{}
 }
 
-func RegisterProvider[Type any](c *Container, provider Provider[Type]) {
+func RegisterProvider[Type any](c *Container, provider Provider[Type], providerType ProviderType) {
 	opaqueProvider, _ := provider.(interface{})
-	c.providers = append(c.providers, opaqueProvider)
+	providerToStore := storedProvider{
+		provider:     opaqueProvider,
+		providerType: providerType,
+	}
+	c.providers = append(c.providers, providerToStore)
 }
 
 func Get[Type any](c *Container) Type {
@@ -24,9 +28,13 @@ func Get[Type any](c *Container) Type {
 
 	// No instance found, create a new one
 	for _, provider := range c.providers {
-		if casted, ok := (provider).(Provider[Type]); ok {
+		if casted, ok := (provider.provider).(Provider[Type]); ok {
 			instance := casted.Provide()
-			c.store = append(c.store, instance)
+			shouldStore := provider.providerType == SingletonProvider
+
+			if shouldStore {
+				c.store = append(c.store, instance)
+			}
 			return instance
 		}
 	}

@@ -1,11 +1,11 @@
 package di
 
 import (
-	"shareLog/di/lib"
+	"shareLog/di/diLib"
 )
 
-var Container = lib.NewContainer()
+var Container = diLib.NewContainer()
 
 func Get[T any]() T {
-	return lib.Get[T](Container)
+	return diLib.Get[T](Container)
 }

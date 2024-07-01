@@ -1,6 +1,7 @@
 package services
 
 import (
+	"shareLog/constants"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/models"
@@ -14,6 +15,7 @@ type logger struct {
 
 type Logger interface {
 	SaveLog(dto dto.Log) (*models.Log, error)
+	GetLog(id uint, user *models.User, userSymmetricKey string) (*models.DecryptedLog, error)
 }
 
 type LoggerProvider struct {
@@ -43,4 +45,27 @@ func (l *logger) SaveLog(dto dto.Log) (*models.Log, error) {
 	}
 
 	return &model, nil
+}
+
+func (l *logger) GetLog(id uint, user *models.User, userSymmetricKey string) (*models.DecryptedLog, error) {
+	encryptedLog := l.repository.GetById(id)
+
+	ownerLevelDecryptedStackTrace, err := l.cryptoService.DecryptMessage(&DecryptOptions{
+		Data:            encryptedLog.DoubleEncryptedStackTrace,
+		Level:           constants.DecryptionOptionsOwnerLevel,
+		Usr:             user,
+		UsrSymmetricKey: userSymmetricKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Decrypt client level
+	decryptedStackTrace, err := ownerLevelDecryptedStackTrace, nil
+	if err != nil {
+		return nil, err
+	}
+
+	decryptedLog := models.NewDecryptedLog(decryptedStackTrace)
+	return &decryptedLog, nil
 }
