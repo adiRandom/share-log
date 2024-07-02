@@ -11,7 +11,7 @@ import (
 
 func createMasterKeyForOwner() {
 	keyRepository := di.Get[repository.KeyRepository]()
-	key := keyRepository.GetPublicKeyForDataOwner()
+	key := keyRepository.GetSharedDataOwnerPublicKey()
 	if key == nil {
 		keyRepository.Create(encryption.OWNER_PUBLIC_KEY)
 	}

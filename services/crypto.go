@@ -36,13 +36,16 @@ type DecryptOptions struct {
 
 type Crypto interface {
 	/*
-		Encrypt the message with the public master key for the Data owners
+		Encrypt the message with the shared public key at the owner level
 	*/
 	EncryptOwnerLevel(data string) (string, error)
 	/*
 		Decrypt a message using the passed options
 	*/
 	DecryptMessage(opt *DecryptOptions) (string, error)
+	/*
+		PasswordDerivation - Derive a token from a password and a salt using bcrypt
+	*/
 	PasswordDerivation(password string, salt string) (string, error)
 	GenerateSalt() string
 	/*
@@ -68,7 +71,7 @@ func (c CryptoProvider) Provide() Crypto {
 }
 
 func (c *crypto) EncryptOwnerLevel(data string) (string, error) {
-	publicKey := c.keyRepository.GetPublicKeyForDataOwner().PublicKey
+	publicKey := c.keyRepository.GetSharedDataOwnerPublicKey().PublicKey
 	encryptedBytes, err := eciesgo.Encrypt(publicKey.Key, []byte(data))
 	return string(encryptedBytes), err
 }
@@ -84,7 +87,10 @@ func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
 	return string(decryptedBytes), err
 }
 
-func (c *crypto) getMasterKey(inviteJwe string) (encryption.EncryptionKey, error) {
+/*
+getSharedKey - Get the shared key for this user from the invite JWE
+*/
+func (c *crypto) getSharedKey(inviteJwe string) (encryption.EncryptionKey, error) {
 	// TODO: Decrypt the inviteJwe and extract the master key
 
 	// TODO: Mock code
@@ -111,7 +117,7 @@ func (c *crypto) GenerateSalt() string {
 }
 
 func (c *crypto) GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (*encryption.EncryptionKey, error) {
-	masterKey, err := c.getMasterKey(inviteJWE)
+	masterKey, err := c.getSharedKey(inviteJWE)
 	if err != nil {
 		return nil, err
 	}

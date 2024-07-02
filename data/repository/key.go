@@ -11,20 +11,11 @@ type keyRepository struct {
 	baseRepository[encryption.EncryptionKey]
 }
 
-func (k *keyRepository) GetPublicKeyForDataOwner() *encryption.EncryptionKey {
-	var key encryption.EncryptionKey
-	err := k.getDb().Where(&encryption.EncryptionKey{Type: encryption.OWNER_PUBLIC_KEY}).First(&key).Error
-	if err != nil {
-		println(err)
-		return nil
-	}
-	return &key
-}
-
 type KeyRepository interface {
 	BaseRepository[encryption.EncryptionKey]
 	Create(keyType string) *encryption.EncryptionKey
-	GetPublicKeyForDataOwner() *encryption.EncryptionKey
+	// GetSharedDataOwnerPublicKey returns the public key used to encrypt logs at the owner level
+	GetSharedDataOwnerPublicKey() *encryption.EncryptionKey
 	GetFirst(keyType string) *encryption.EncryptionKey
 }
 
@@ -70,4 +61,14 @@ func (k *keyRepository) generatePrivateKey() *eciesgo.PrivateKey {
 		return nil
 	}
 	return key
+}
+
+func (k *keyRepository) GetSharedDataOwnerPublicKey() *encryption.EncryptionKey {
+	var key encryption.EncryptionKey
+	err := k.getDb().Where(&encryption.EncryptionKey{Type: encryption.OWNER_PUBLIC_KEY}).First(&key).Error
+	if err != nil {
+		println(err)
+		return nil
+	}
+	return &key
 }

@@ -37,6 +37,7 @@ func (l *logController) LoadLogController(engine *gin.Engine) {
 	group := engine.Group("/log")
 	l.WithAuth(group)
 	group.POST("/", l.createLog)
+	group.GET("/:id", l.getLogById)
 }
 
 func (l *logController) createLog(c *gin.Context) {
