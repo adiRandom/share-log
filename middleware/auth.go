@@ -43,7 +43,6 @@ func (a *auth) AuthUser(c *gin.Context) {
 		return
 	}
 
-	// TODO: Get JWT from JWE and validate
 	jwt := a.cryptoService.DecodeJWE(jwe)
 	validationError := a.authService.ValidateJWT(*jwt)
 	if validationError != nil {

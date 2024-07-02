@@ -1,2 +1,6 @@
 test.db
 .idea/
+/jwt_ket.pub
+/jwt_ket
+/jwe_key
+/jwe_key.pub

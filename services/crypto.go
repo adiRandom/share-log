@@ -127,6 +127,13 @@ func (c *crypto) GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey stri
 }
 
 func (c *crypto) DecodeJWE(jwe *jose.JSONWebEncryption) *jwt.Token {
-	//TODO implement me
-	panic("implement me")
+	key := c.keyRepository.GetJWEDecryptKey()
+	jwtBytes, err := jwe.Decrypt(key)
+	if err != nil {
+		println(err)
+		return nil
+	}
+
+	token, _ := jwt.Parse(string(jwtBytes), nil)
+	return token
 }
