@@ -2,7 +2,7 @@ package providers
 
 import (
 	"gorm.io/gorm"
-	"shareLog/controllers"
+	"shareLog/controllers/base"
 	"shareLog/controllers/log"
 	"shareLog/data"
 	"shareLog/data/repository"
@@ -19,10 +19,9 @@ func InitDi() {
 	diLib.RegisterProvider[repository.LogRepository](di.Container, repository.LogRepositoryProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[log.LogController](di.Container, log.LogControllerProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[repository.KeyRepository](di.Container, repository.KeyRepositoryProvider{}, diLib.SingletonProvider)
-	diLib.RegisterProvider[services.UserService](di.Container, services.UserServiceProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[repository.UserRepository](di.Container, repository.UserRepositoryProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[services.Auth](di.Container, services.AuthProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[middleware.Auth](di.Container, middleware.AuthProvider{}, diLib.SingletonProvider)
 
-	diLib.RegisterProvider[controllers.BaseController](di.Container, controllers.BaseControllerProvider{}, diLib.FactoryProvider)
+	diLib.RegisterProvider[base.BaseController](di.Container, base.BaseControllerProvider{}, diLib.FactoryProvider)
 }

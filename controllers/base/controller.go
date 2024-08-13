@@ -1,8 +1,8 @@
-package controllers
+package base
 
 import (
 	"github.com/gin-gonic/gin"
-	jwtLib "github.com/golang-jwt/jwt/v4"
+	jwtLib "github.com/golang-jwt/jwt/v5"
 	"shareLog/constants"
 	"shareLog/di"
 	"shareLog/middleware"

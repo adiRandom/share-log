@@ -1,17 +1,15 @@
 package services
 
 import (
-	"errors"
 	eciesgo "github.com/ecies/go/v2"
-	"github.com/go-jose/go-jose/v4"
-	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 	"math/rand"
 	"shareLog/constants"
 	"shareLog/data/repository"
 	"shareLog/di"
+	"shareLog/lib"
 	"shareLog/models"
-	"shareLog/models/encryption"
+	"shareLog/models/encryption/keyType"
 )
 
 type crypto struct {
@@ -48,17 +46,6 @@ type Crypto interface {
 	*/
 	PasswordDerivation(password string, salt string) (string, error)
 	GenerateSalt() string
-	/*
-		Extract from the JWE the encryption key of the user that crated the invite
-
-		@param inviteJWE: The JWE that contains the user id of the user that created the invite, the access Level
-		and the key to decrypt the master key for that access Level
-
-		@param encryptionKey: The key used to encrypt the master private key for the new user
-		@return The encryption key of the user that created the invite
-	*/
-	GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (*encryption.EncryptionKey, error)
-	DecodeJWE(jwe *jose.JSONWebEncryption) *jwt.Token
 }
 
 type CryptoProvider struct {
@@ -71,8 +58,12 @@ func (c CryptoProvider) Provide() Crypto {
 }
 
 func (c *crypto) EncryptOwnerLevel(data string) (string, error) {
-	publicKey := c.keyRepository.GetSharedDataOwnerPublicKey().PublicKey
-	encryptedBytes, err := eciesgo.Encrypt(publicKey.Key, []byte(data))
+	publicKey := c.keyRepository.GetPublicKey(keyType.OWNER_PUBLIC_KEY)
+	if publicKey == nil {
+		return "", lib.Error{Msg: "No owner public key found"}
+	}
+
+	encryptedBytes, err := eciesgo.Encrypt(publicKey.PublicKey.Key, []byte(data))
 	return string(encryptedBytes), err
 }
 
@@ -85,20 +76,6 @@ func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
 
 	decryptedBytes, err := eciesgo.Decrypt(privateKey, []byte(opt.Data))
 	return string(decryptedBytes), err
-}
-
-/*
-getSharedKey - Get the shared key for this user from the invite JWE
-*/
-func (c *crypto) getSharedKey(inviteJwe string) (encryption.EncryptionKey, error) {
-	// TODO: Decrypt the inviteJwe and extract the master key
-
-	// TODO: Mock code
-	key := c.keyRepository.GetFirst(encryption.OWNER_PUBLIC_KEY)
-	if key == nil {
-		return encryption.EncryptionKey{}, errors.New("master key not found")
-	}
-	return *key, nil
 }
 
 func (c *crypto) PasswordDerivation(password string, salt string) (string, error) {
@@ -114,26 +91,4 @@ func (c *crypto) GenerateSalt() string {
 		saltBytes[i] = constants.LetterBytes[rand.Intn(len(constants.LetterBytes))]
 	}
 	return string(saltBytes)
-}
-
-func (c *crypto) GetEncryptionKeyForNewUser(inviteJWE string, encryptionKey string) (*encryption.EncryptionKey, error) {
-	masterKey, err := c.getSharedKey(inviteJWE)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: Encrypt the key and save it in the db
-	return &masterKey, nil
-}
-
-func (c *crypto) DecodeJWE(jwe *jose.JSONWebEncryption) *jwt.Token {
-	key := c.keyRepository.GetJWEDecryptKey()
-	jwtBytes, err := jwe.Decrypt(key)
-	if err != nil {
-		println(err)
-		return nil
-	}
-
-	token, _ := jwt.Parse(string(jwtBytes), nil)
-	return token
 }

@@ -3,23 +3,28 @@ package encryption
 import (
 	eciesgo "github.com/ecies/go/v2"
 	"gorm.io/gorm"
+	"shareLog/models/encryption/keyType"
 )
 
-type EncryptionKey struct {
+type Key struct {
 	gorm.Model
-	PublicKey  PublicKey
+	PublicKey  *PublicKey
 	PrivateKey *PrivateKey
-	Type       string
+	Type       keyType.Type
 }
 
-const CLIENT_TYPE = "client"
-const OWNER_TYPE = "owner"
-const OWNER_PUBLIC_KEY = "ownerPublicKey"
-
-func NewEncryptionKey(key eciesgo.PrivateKey, keyType string) EncryptionKey {
-	return EncryptionKey{
-		PublicKey:  PublicKey{key.PublicKey},
+func NewPrivateKey(key *eciesgo.PrivateKey, t keyType.Type) Key {
+	return Key{
+		PublicKey:  nil,
 		PrivateKey: &PrivateKey{encryptedHex: key.Hex()},
-		Type:       keyType,
+		Type:       t,
+	}
+}
+
+func NewPublicKey(key *eciesgo.PublicKey, t keyType.Type) Key {
+	return Key{
+		PublicKey:  &PublicKey{key},
+		PrivateKey: nil,
+		Type:       t,
 	}
 }

@@ -2,7 +2,7 @@ package log
 
 import (
 	"github.com/gin-gonic/gin"
-	"shareLog/controllers"
+	"shareLog/controllers/base"
 	"shareLog/di"
 	"shareLog/models"
 	"shareLog/models/dto"
@@ -11,7 +11,7 @@ import (
 )
 
 type logController struct {
-	controllers.BaseController
+	base.BaseController
 	logService services.Logger
 }
 
@@ -25,7 +25,7 @@ type LogControllerProvider struct {
 
 func (l LogControllerProvider) Provide() LogController {
 	logService := di.Get[services.Logger]()
-	baseController := di.Get[controllers.BaseController]()
+	baseController := di.Get[base.BaseController]()
 	var instance LogController = &logController{
 		baseController,
 		logService,

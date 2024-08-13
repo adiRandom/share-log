@@ -28,7 +28,7 @@ func (d DatabaseProvider) Provide() *gorm.DB {
 func getEntities() []interface{} {
 	return []interface{}{
 		&models.Log{},
-		&encryption.EncryptionKey{},
+		&encryption.Key{},
 		&models.User{},
 	}
 }
