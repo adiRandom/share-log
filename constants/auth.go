@@ -1,3 +1,3 @@
 package constants
 
-const ContextJWTKey = "user"
+const ContextJWTKey = "userGrant"

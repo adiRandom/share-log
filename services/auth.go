@@ -1,10 +1,12 @@
 package services
 
 import (
+	eciesgo "github.com/ecies/go/v2"
 	jwtLib "github.com/golang-jwt/jwt/v5"
 	"shareLog/data/repository"
 	"shareLog/models"
 	"shareLog/models/dto"
+	"shareLog/models/userGrant"
 	"strconv"
 )
 
@@ -15,7 +17,7 @@ type auth struct {
 }
 
 /*
-symmetricKey is the key used by this user to secure all their other encryption keys
+symmetricKey is the key used by this userGrant to secure all their other encryption keys
 */
 type jwtClaims struct {
 	jwtLib.RegisteredClaims
@@ -86,4 +88,17 @@ func (a *auth) SignUpWithEmail(signupDto dto.Signup) (*models.User, error) {
 
 func (a *auth) SignInWithEmail(email string, password string) (*models.User, error) {
 	panic("Not implemented")
+}
+
+func (a *auth) CreateUserInvite(grantType userGrant.Type, pk *eciesgo.PrivateKey) (*dto.Invite, error) {
+	code := a.cryptoService.GenerateSalt()
+	_, err := a.cryptoService.CreatePrivateKey(pk, grantType, code)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dto.Invite{
+		Code:  code,
+		Grant: grantType,
+	}, nil
 }

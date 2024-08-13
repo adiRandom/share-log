@@ -4,12 +4,11 @@ import (
 	"crypto/ed25519"
 	"crypto/x509"
 	"encoding/pem"
-	eciesgo "github.com/ecies/go/v2"
 	"gorm.io/gorm"
 	"os"
 	"shareLog/di"
 	"shareLog/models/encryption"
-	"shareLog/models/encryption/keyType"
+	"shareLog/models/userGrant"
 )
 
 type keyRepository struct {
@@ -18,7 +17,7 @@ type keyRepository struct {
 
 type KeyRepository interface {
 	BaseRepository[encryption.Key]
-	GetPublicKey(t keyType.Type) *encryption.Key
+	GetPublicKey(t userGrant.Type) *encryption.Key
 	GetJWTVerifyKey() *ed25519.PublicKey
 }
 
@@ -32,18 +31,9 @@ func (k KeyRepositoryProvider) Provide() KeyRepository {
 	}
 }
 
-func (k *keyRepository) generatePrivateKey() *eciesgo.PrivateKey {
-	key, err := eciesgo.GenerateKey()
-	if err != nil {
-		println(err)
-		return nil
-	}
-	return key
-}
-
-func (k *keyRepository) GetPublicKey(t keyType.Type) *encryption.Key {
+func (k *keyRepository) GetPublicKey(t userGrant.Type) *encryption.Key {
 	var key encryption.Key
-	err := k.getDb().Where(&encryption.Key{Type: t}).First(&key).Error
+	err := k.getDb().Where(&encryption.Key{UserGrant: t}).First(&key).Error
 	if err != nil {
 		println(err)
 		return nil

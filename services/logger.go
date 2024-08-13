@@ -1,11 +1,11 @@
 package services
 
 import (
-	"shareLog/constants"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/models"
 	"shareLog/models/dto"
+	"shareLog/models/userGrant"
 )
 
 type logger struct {
@@ -52,7 +52,7 @@ func (l *logger) GetLog(id uint, user *models.User, userSymmetricKey string) (*m
 
 	ownerLevelDecryptedStackTrace, err := l.cryptoService.DecryptMessage(&DecryptOptions{
 		Data:            encryptedLog.DoubleEncryptedStackTrace,
-		Level:           constants.DecryptionOptionsOwnerLevel,
+		Level:           userGrant.GRANT_OWNER,
 		Usr:             user,
 		UsrSymmetricKey: userSymmetricKey,
 	})

@@ -13,7 +13,7 @@ import (
 type BaseController interface {
 	GetUser(c *gin.Context) *models.User
 	WithAuth(g *gin.RouterGroup)
-	// GetUserSymmetricKey returns the symmetric key of the user used to secure all their other encryption keys
+	// GetUserSymmetricKey returns the symmetric key of the userGrant used to secure all their other encryption keys
 	GetUserSymmetricKey(c *gin.Context) string
 }
 
