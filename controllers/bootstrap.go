@@ -2,11 +2,13 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
-	"shareLog/controllers/log"
+	"shareLog/controllers/base"
 	"shareLog/di"
 )
 
 func LoadAllController(engine *gin.Engine) {
-	logController := di.Get[log.LogController]()
-	logController.LoadLogController(engine)
+	controllers := di.GetAll[base.LoadableController]()
+	for _, controller := range controllers {
+		controller.LoadController(engine)
+	}
 }

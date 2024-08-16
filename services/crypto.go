@@ -56,7 +56,7 @@ type Crypto interface {
 type CryptoProvider struct {
 }
 
-func (c CryptoProvider) Provide() Crypto {
+func (c CryptoProvider) Provide() any {
 	keyRepository := di.Get[repository.KeyRepository]()
 	var instance Crypto = &crypto{keyRepository}
 	return instance
@@ -74,7 +74,7 @@ func (c *crypto) EncryptOwnerLevel(data string) (string, error) {
 
 func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
 	// TODO: Get the appropriate Level key
-	privateKey, err := opt.Usr.EncryptionKey.PrivateKey.Key(opt.UsrSymmetricKey)
+	privateKey, err := opt.Usr.EncryptionKey.PrivateKey.Key()
 	if err != nil {
 		return "", err
 	}

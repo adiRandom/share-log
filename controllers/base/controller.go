@@ -2,8 +2,7 @@ package base
 
 import (
 	"github.com/gin-gonic/gin"
-	jwtLib "github.com/golang-jwt/jwt/v5"
-	"shareLog/constants"
+	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/middleware"
 	"shareLog/models"
@@ -12,44 +11,42 @@ import (
 
 type BaseController interface {
 	GetUser(c *gin.Context) *models.User
-	WithAuth(g *gin.RouterGroup)
-	// GetUserSymmetricKey returns the symmetric key of the userGrant used to secure all their other encryption keys
-	GetUserSymmetricKey(c *gin.Context) string
+	//WithAuth(g *gin.RouterGroup)
+	//// GetUserSymmetricKey returns the symmetric key of the userGrant used to secure all their other encryption keys
+	//GetUserSymmetricKey(c *gin.Context) string
 }
 
 type baseController struct {
 	authService    services.Auth
 	authMiddleware middleware.Auth
+	userRepository repository.UserRepository
 }
 
 type BaseControllerProvider struct {
 }
 
-func (b BaseControllerProvider) Provide() BaseController {
+func (b BaseControllerProvider) Provide() any {
 	authService := di.Get[services.Auth]()
 	authMiddleware := di.Get[middleware.Auth]()
-	return &baseController{authService: authService, authMiddleware: authMiddleware}
+	userRepository := di.Get[repository.UserRepository]()
+	return &baseController{authService: authService, authMiddleware: authMiddleware, userRepository: userRepository}
 }
 
 func (b *baseController) GetUser(c *gin.Context) *models.User {
-	jwt, exists := c.Get(constants.ContextJWTKey)
-	if !exists {
-		c.Status(401)
-		return nil
-	}
+	//jwt, exists := c.Get(constants.ContextJWTKey)
+	//if !exists {
+	//	c.Status(401)
+	//	return nil
+	//}
+	//
+	//user := b.authService.GetAuthUser(jwt.(jwtLib.Token))
+	//return user
 
-	user := b.authService.GetAuthUser(jwt.(jwtLib.Token))
-	return user
+	return b.userRepository.GetById(1000)
 }
 
 func (b *baseController) GetUserSymmetricKey(c *gin.Context) string {
-	jwt, exists := c.Get(constants.ContextJWTKey)
-	if !exists {
-		c.Status(401)
-		return ""
-	}
-
-	return b.authService.GetUserSymmetricKey(jwt.(jwtLib.Token))
+	panic("implement me")
 }
 
 func (b *baseController) WithAuth(g *gin.RouterGroup) {

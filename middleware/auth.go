@@ -21,7 +21,7 @@ type Auth interface {
 type AuthProvider struct {
 }
 
-func (p AuthProvider) Provide() Auth {
+func (p AuthProvider) Provide() any {
 	userRepository := di.Get[repository.UserRepository]()
 
 	cryptoService := di.Get[services.Crypto]()

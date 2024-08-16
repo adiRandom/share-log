@@ -1,8 +1,6 @@
 package diLib
 
 type Container struct {
-	store []interface{}
-	// Holds slice of Provider
 	providers []storedProvider
 }
 
@@ -10,34 +8,88 @@ func NewContainer() *Container {
 	return &Container{}
 }
 
-func RegisterProvider[Type any](c *Container, provider Provider[Type], providerType ProviderType) {
-	opaqueProvider, _ := provider.(interface{})
+func RegisterProvider[Type any](c *Container, provider Provider, providerType ProviderType, bindings ...interface{}) {
 	providerToStore := storedProvider{
-		provider:     opaqueProvider,
-		providerType: providerType,
+		provider:       provider,
+		providerType:   providerType,
+		registeredType: typeInfo[Type]{},
+		bindings:       bindings,
 	}
+
 	c.providers = append(c.providers, providerToStore)
 }
 
-func Get[Type any](c *Container) Type {
-	for _, instance := range c.store {
-		if casted, ok := (instance).(Type); ok {
-			return casted
-		}
-	}
-
-	// No instance found, create a new one
+func findFirstProviderForType[Type any](c *Container) *storedProvider {
 	for _, provider := range c.providers {
-		if casted, ok := (provider.provider).(Provider[Type]); ok {
-			instance := casted.Provide()
-			shouldStore := provider.providerType == SingletonProvider
-
-			if shouldStore {
-				c.store = append(c.store, instance)
-			}
-			return instance
+		if isProviderForType[Type](provider) {
+			return &provider
 		}
 	}
 
-	panic("No provider found for type")
+	return nil
+}
+
+func Get[Type any](c *Container) Type {
+	provider := findFirstProviderForType[Type](c)
+	if provider == nil {
+		panic("No provider found for type")
+	}
+
+	instance := provider.GetOrCreateInstance()
+	castedInstance, ok := instance.(Type)
+	if ok {
+		return castedInstance
+	}
+
+	// It is a pointer
+	castedPointer, ok := instance.(*interface{})
+	if ok {
+		return (*castedPointer).(Type)
+	}
+
+	panic("Could not cast instance to type")
+}
+
+func isProviderForType[Type any](provider storedProvider) bool {
+	var registeredType = provider.registeredType
+	_, ok := registeredType.(typeInfo[Type])
+	if ok {
+		return true
+	}
+
+	for _, binding := range provider.bindings {
+		var opaqueBinding any = binding
+
+		if _, ok := opaqueBinding.(Binding[Type]); ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func GetAll[Type any](c *Container) []Type {
+	var instances = make([]Type, 0)
+
+	for _, provider := range c.providers {
+		if isProviderForType[Type](provider) {
+			instance := provider.GetOrCreateInstance()
+			castedInstance, ok := instance.(Type)
+			if ok {
+				instances = append(instances, castedInstance)
+				continue
+			}
+
+			// It is a pointer
+			castedPointer, ok := instance.(*interface{})
+			if ok {
+				instances = append(instances, (*castedPointer).(Type))
+				continue
+			}
+
+			panic("Could not cast instance to type")
+		}
+	}
+
+	return instances
 }

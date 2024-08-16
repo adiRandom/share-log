@@ -35,12 +35,13 @@ type Auth interface {
 	GetUserSymmetricKey(jwt jwtLib.Token) string
 	SignUpWithEmail(signupDto dto.Signup) (*models.User, error)
 	SignInWithEmail(email string, password string) (*models.User, error)
+	CreateUserInvite(grantType userGrant.Type, pk *eciesgo.PrivateKey) (*dto.Invite, error)
 }
 
 type AuthProvider struct {
 }
 
-func (p AuthProvider) Provide() Auth {
+func (p AuthProvider) Provide() any {
 	return &auth{}
 }
 

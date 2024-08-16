@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"crypto/x509"
 	"encoding/pem"
+	eciesgo "github.com/ecies/go/v2"
 	"gorm.io/gorm"
 	"os"
 	"shareLog/di"
@@ -19,12 +20,13 @@ type KeyRepository interface {
 	BaseRepository[encryption.Key]
 	GetPublicKey(t userGrant.Type) *encryption.Key
 	GetJWTVerifyKey() *ed25519.PublicKey
+	CreateDefaultKeys()
 }
 
 type KeyRepositoryProvider struct {
 }
 
-func (k KeyRepositoryProvider) Provide() KeyRepository {
+func (k KeyRepositoryProvider) Provide() any {
 	db := di.Get[*gorm.DB]()
 	return &keyRepository{
 		baseRepository: newBaseRepository[encryption.Key](db),
@@ -68,4 +70,29 @@ func (k *keyRepository) getPemPublicKey(path string) (*any, error) {
 	}
 
 	return &key, nil
+}
+
+// Test code
+
+func (k *keyRepository) CreateDefaultKeys() {
+	var keyCount int64
+	if k.db.Model(&encryption.Key{}).Where("id = 1000").First(&encryption.Key{}).Count(&keyCount); keyCount > 0 {
+		return
+	}
+
+	key, _ := eciesgo.GenerateKey()
+	pk, _ := encryption.NewPrivateKeyFromHex(key.Hex())
+
+	keyModel := encryption.Key{
+		Model: gorm.Model{
+			ID: 1000,
+		},
+		UserGrant: userGrant.GRANT_OWNER,
+		PublicKey: &encryption.PublicKey{
+			Key: key.PublicKey,
+		},
+		PrivateKey: pk,
+	}
+
+	k.db.Create(&keyModel)
 }

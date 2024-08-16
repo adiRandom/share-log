@@ -7,7 +7,6 @@ import (
 	"shareLog/models"
 	"shareLog/models/dto"
 	"shareLog/services"
-	"strconv"
 )
 
 type logController struct {
@@ -16,14 +15,14 @@ type logController struct {
 }
 
 type LogController interface {
-	LoadLogController(engine *gin.Engine)
-	createLog(c *gin.Context)
+	base.LoadableController
+	LoadController(engine *gin.Engine)
 }
 
 type LogControllerProvider struct {
 }
 
-func (l LogControllerProvider) Provide() LogController {
+func (l LogControllerProvider) Provide() any {
 	logService := di.Get[services.Logger]()
 	baseController := di.Get[base.BaseController]()
 	var instance LogController = &logController{
@@ -33,11 +32,10 @@ func (l LogControllerProvider) Provide() LogController {
 	return instance
 }
 
-func (l *logController) LoadLogController(engine *gin.Engine) {
+func (l *logController) LoadController(engine *gin.Engine) {
 	group := engine.Group("/log")
-	l.WithAuth(group)
+	//l.WithAuth(group)
 	group.POST("/", l.createLog)
-	group.GET("/:id", l.getLogById)
 }
 
 func (l *logController) createLog(c *gin.Context) {
@@ -59,30 +57,4 @@ func (l *logController) createLog(c *gin.Context) {
 	}
 
 	c.Status(200)
-}
-
-const getLogIdParam = "id"
-
-func (l *logController) getLogById(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param(getLogIdParam), 10, 32)
-	if err != nil {
-		c.Status(400)
-	}
-
-	user := l.GetUser(c)
-	if user == nil {
-		c.Status(401)
-		return
-	}
-
-	userSymmetricKey := l.GetUserSymmetricKey(c)
-	log, err := l.logService.GetLog(uint(id), user, userSymmetricKey)
-	if err != nil {
-		c.JSON(500, models.GetResponse(dto.Error{
-			Code:    500,
-			Message: err.Error()}))
-		return
-	}
-
-	c.JSON(200, models.GetResponse(log))
 }

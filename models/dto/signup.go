@@ -12,3 +12,7 @@ type Invite struct {
 	Code  string         `json:"code"`
 	Grant userGrant.Type `json:"grant"`
 }
+
+type CreateInvite struct {
+	Grant userGrant.Type `json:"grant"`
+}

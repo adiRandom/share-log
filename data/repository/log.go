@@ -17,7 +17,7 @@ type LogRepository interface {
 type LogRepositoryProvider struct {
 }
 
-func (l LogRepositoryProvider) Provide() LogRepository {
+func (l LogRepositoryProvider) Provide() any {
 	var db = di.Get[*gorm.DB]()
 	var instance LogRepository = &logRepository{baseRepository: newBaseRepository[models.Log](db)}
 	return instance

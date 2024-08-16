@@ -10,7 +10,7 @@ import (
 type DatabaseProvider struct {
 }
 
-func (d DatabaseProvider) Provide() *gorm.DB {
+func (d DatabaseProvider) Provide() any {
 	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
