@@ -1,38 +1,32 @@
 package encryption
 
 import (
-	"database/sql/driver"
-	"errors"
 	eciesgo "github.com/ecies/go/v2"
+	"shareLog/lib"
 )
 
+// TODO: Seems to unpad a lot
+const keySize = 64 // bytes
+
 type PrivateKey struct {
-	encryptedHex string
+	EncryptedHex string
+	Iv           string
 }
 
-func (k *PrivateKey) Key() (*eciesgo.PrivateKey, error) {
-	// TODO: Decrypt the encryptedHex and convert it to a private key
-	return eciesgo.NewPrivateKeyFromHex(k.encryptedHex)
-}
+func (k *PrivateKey) Key(userSymmetricKey []byte) (*eciesgo.PrivateKey, error) {
+	decryptedHex, err := lib.PerformSymmetricDecryption(
+		k.EncryptedHex,
+		keySize,
+		k.Iv,
+		userSymmetricKey,
+	)
 
-func (k *PrivateKey) Scan(src any) error {
-	hex, ok := src.(string)
-	if !ok {
-		return errors.New("private key must be a string")
+	if err != nil {
+		return nil, err
 	}
-
-	*k = PrivateKey{encryptedHex: hex}
-	return nil
+	return eciesgo.NewPrivateKeyFromHex(decryptedHex)
 }
 
-func (k *PrivateKey) Value() (driver.Value, error) {
-	return k.encryptedHex, nil
-}
-
-func (p *PrivateKey) GormDataType() string {
-	return "text"
-}
-
-func NewPrivateKeyFromHex(encryptedHex string) (*PrivateKey, error) {
-	return &PrivateKey{encryptedHex: encryptedHex}, nil
+func NewPrivateKeyFromHex(encryptedHex string, iv string) (*PrivateKey, error) {
+	return &PrivateKey{EncryptedHex: encryptedHex, Iv: iv}, nil
 }

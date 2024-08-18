@@ -55,7 +55,11 @@ func (a *authController) InviteUser(c *gin.Context) {
 		return
 	}
 
-	pk, _ := user.EncryptionKey.PrivateKey.Key()
+	pk, err := user.EncryptionKey.PrivateKey.Key(a.GetUserSymmetricKey(c))
+	if err != nil {
+		c.Status(403)
+		return
+	}
 
 	invite, _ := a.authService.CreateUserInvite(userGrant.GRANT_OWNER, pk)
 	c.JSON(200, models.GetResponse(invite))

@@ -26,7 +26,7 @@ func (p *PublicKey) Scan(src any) error {
 }
 
 func (p *PublicKey) Value() (driver.Value, error) {
-	if p.Key == nil {
+	if p == nil || p.Key == nil {
 		return nil, nil
 	}
 

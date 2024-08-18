@@ -11,6 +11,5 @@ type User struct {
 	PasswordHash      string
 	PasswordSalt      string
 	EncryptionKeySalt string
-	EncryptionKeyID   uint
-	EncryptionKey     *encryption.Key `gorm:"foreignKey:EncryptionKeyID"`
+	EncryptionKey     *encryption.Key
 }

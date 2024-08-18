@@ -8,15 +8,16 @@ import (
 
 type Key struct {
 	gorm.Model
+	UserID     uint
 	PublicKey  *PublicKey
-	PrivateKey *PrivateKey
+	PrivateKey *PrivateKey `gorm:"embedded;embeddedPrefix:pk_"`
 	UserGrant  userGrant.Type
 }
 
-func NewPrivateKey(encryptedHex string, t userGrant.Type) Key {
+func NewPrivateKey(encryptedHex string, iv string, t userGrant.Type) Key {
 	return Key{
 		PublicKey:  nil,
-		PrivateKey: &PrivateKey{encryptedHex: encryptedHex},
+		PrivateKey: &PrivateKey{EncryptedHex: encryptedHex, Iv: iv},
 		UserGrant:  t,
 	}
 }
@@ -25,6 +26,14 @@ func NewPublicKey(key *eciesgo.PublicKey, t userGrant.Type) Key {
 	return Key{
 		PublicKey:  &PublicKey{key},
 		PrivateKey: nil,
+		UserGrant:  t,
+	}
+}
+
+func NewEncryptionKey(pubKey *eciesgo.PublicKey, pkEncryptedHex string, pkIv string, t userGrant.Type) Key {
+	return Key{
+		PublicKey:  &PublicKey{pubKey},
+		PrivateKey: &PrivateKey{EncryptedHex: pkEncryptedHex, Iv: pkIv},
 		UserGrant:  t,
 	}
 }

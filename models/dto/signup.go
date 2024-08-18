@@ -9,7 +9,9 @@ type Signup struct {
 }
 
 type Invite struct {
+	KeyId uint           `json:"keyId"`
 	Code  string         `json:"code"`
+	Salt  string         `json:"salt"`
 	Grant userGrant.Type `json:"grant"`
 }
 

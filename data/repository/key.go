@@ -2,12 +2,15 @@ package repository
 
 import (
 	"crypto/ed25519"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	eciesgo "github.com/ecies/go/v2"
+	"golang.org/x/crypto/pbkdf2"
 	"gorm.io/gorm"
 	"os"
 	"shareLog/di"
+	"shareLog/lib"
 	"shareLog/models/encryption"
 	"shareLog/models/userGrant"
 )
@@ -81,12 +84,14 @@ func (k *keyRepository) CreateDefaultKeys() {
 	}
 
 	key, _ := eciesgo.GenerateKey()
-	pk, _ := encryption.NewPrivateKeyFromHex(key.Hex())
+	encryptedHex, iv, _ := lib.PerformSymmetricEncryption(key.Hex(), pbkdf2.Key([]byte("test"), []byte("salt"), 32, 32, sha256.New))
+	pk, _ := encryption.NewPrivateKeyFromHex(encryptedHex, iv)
 
 	keyModel := encryption.Key{
 		Model: gorm.Model{
 			ID: 1000,
 		},
+		UserID:    1000,
 		UserGrant: userGrant.GRANT_OWNER,
 		PublicKey: &encryption.PublicKey{
 			Key: key.PublicKey,

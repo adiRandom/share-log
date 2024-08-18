@@ -4,6 +4,7 @@ import (
 	eciesgo "github.com/ecies/go/v2"
 	jwtLib "github.com/golang-jwt/jwt/v5"
 	"shareLog/data/repository"
+	"shareLog/di"
 	"shareLog/models"
 	"shareLog/models/dto"
 	"shareLog/models/userGrant"
@@ -42,7 +43,11 @@ type AuthProvider struct {
 }
 
 func (p AuthProvider) Provide() any {
-	return &auth{}
+	return &auth{
+		userRepository: di.Get[repository.UserRepository](),
+		keyRepository:  di.Get[repository.KeyRepository](),
+		cryptoService:  di.Get[Crypto](),
+	}
 }
 
 func (a *auth) GetAuthUser(jwt jwtLib.Token) *models.User {
@@ -93,13 +98,15 @@ func (a *auth) SignInWithEmail(email string, password string) (*models.User, err
 
 func (a *auth) CreateUserInvite(grantType userGrant.Type, pk *eciesgo.PrivateKey) (*dto.Invite, error) {
 	code := a.cryptoService.GenerateSalt()
-	_, err := a.cryptoService.CreatePrivateKey(pk, grantType, code)
+	salt := a.cryptoService.GenerateSalt()
+	_, err := a.cryptoService.CreateEncryptionKey(pk, grantType, code, salt)
 	if err != nil {
 		return nil, err
 	}
 
 	return &dto.Invite{
 		Code:  code,
+		Salt:  salt,
 		Grant: grantType,
 	}, nil
 }

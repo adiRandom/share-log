@@ -1,7 +1,9 @@
 package base
 
 import (
+	"crypto/sha256"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/pbkdf2"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/middleware"
@@ -11,9 +13,10 @@ import (
 
 type BaseController interface {
 	GetUser(c *gin.Context) *models.User
-	//WithAuth(g *gin.RouterGroup)
-	//// GetUserSymmetricKey returns the symmetric key of the userGrant used to secure all their other encryption keys
-	//GetUserSymmetricKey(c *gin.Context) string
+	//  WithAuth(g *gin.RouterGroup)
+
+	// GetUserSymmetricKey Return the key this user uses to encrypt and decrypt all their other keys
+	GetUserSymmetricKey(c *gin.Context) []byte
 }
 
 type baseController struct {
@@ -42,11 +45,11 @@ func (b *baseController) GetUser(c *gin.Context) *models.User {
 	//user := b.authService.GetAuthUser(jwt.(jwtLib.Token))
 	//return user
 
-	return b.userRepository.GetById(1000)
+	return b.userRepository.GetByIdWithPrivateKey(1000)
 }
 
-func (b *baseController) GetUserSymmetricKey(c *gin.Context) string {
-	panic("implement me")
+func (b *baseController) GetUserSymmetricKey(c *gin.Context) []byte {
+	return pbkdf2.Key([]byte("test"), []byte("salt"), 32, 32, sha256.New)
 }
 
 func (b *baseController) WithAuth(g *gin.RouterGroup) {
