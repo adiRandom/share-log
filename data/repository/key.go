@@ -87,11 +87,12 @@ func (k *keyRepository) CreateDefaultKeys() {
 	encryptedHex, iv, _ := lib.PerformSymmetricEncryption(key.Hex(), pbkdf2.Key([]byte("test"), []byte("salt"), 32, 32, sha256.New))
 	pk, _ := encryption.NewPrivateKeyFromHex(encryptedHex, iv)
 
+	var userId uint = 1000
 	keyModel := encryption.Key{
 		Model: gorm.Model{
 			ID: 1000,
 		},
-		UserID:    1000,
+		UserID:    &userId,
 		UserGrant: userGrant.GRANT_OWNER,
 		PublicKey: &encryption.PublicKey{
 			Key: key.PublicKey,

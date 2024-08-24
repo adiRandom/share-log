@@ -8,7 +8,7 @@ import (
 
 type Key struct {
 	gorm.Model
-	UserID     uint
+	UserID     *uint
 	PublicKey  *PublicKey
 	PrivateKey *PrivateKey `gorm:"embedded;embeddedPrefix:pk_"`
 	UserGrant  userGrant.Type

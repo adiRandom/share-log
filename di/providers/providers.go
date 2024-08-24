@@ -23,6 +23,7 @@ func InitDi() {
 	diLib.RegisterProvider[services.Auth](di.Container, services.AuthProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[middleware.Auth](di.Container, middleware.AuthProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[base.BaseController](di.Container, base.BaseControllerProvider{}, diLib.FactoryProvider)
+	diLib.RegisterProvider[repository.InviteRepository](di.Container, repository.InviteRepositoryProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[auth.Controller](di.Container, auth.ControllerProvider{}, diLib.SingletonProvider, diLib.Binding[base.LoadableController]{})
 	diLib.RegisterProvider[log.LogController](di.Container, log.LogControllerProvider{}, diLib.SingletonProvider, diLib.Binding[base.LoadableController]{})
 }

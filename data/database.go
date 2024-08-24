@@ -30,5 +30,6 @@ func getEntities() []interface{} {
 		&models.Log{},
 		&encryption.Key{},
 		&models.User{},
+		&models.Invite{},
 	}
 }

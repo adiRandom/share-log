@@ -48,7 +48,8 @@ type Crypto interface {
 	*/
 	DecryptMessage(opt *DecryptOptions) (string, error)
 	GenerateSalt() string
-	CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, passphrase string, salt string) (*encryption.PrivateKey, error)
+	DeriveSecurePassphrase(password string, salt string) []byte
+	CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, passphrase string, salt string) (*encryption.Key, error)
 }
 
 type CryptoProvider struct {
@@ -81,7 +82,7 @@ func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
 	return string(decryptedBytes), err
 }
 
-func (c *crypto) passwordDerivation(password string, salt string) []byte {
+func (c *crypto) DeriveSecurePassphrase(password string, salt string) []byte {
 	return pbkdf2.Key([]byte(password), []byte(salt), derivePasswordHashIter, derivePasswordKeyLen, sha256.New)
 }
 
@@ -96,9 +97,9 @@ func (c *crypto) GenerateSalt() string {
 	return string(saltBytes)
 }
 
-func (c *crypto) CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, passphrase string, salt string) (*encryption.PrivateKey, error) {
+func (c *crypto) CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, passphrase string, salt string) (*encryption.Key, error) {
 	hex := key.Hex()
-	hashedPassphrase := c.passwordDerivation(passphrase, salt)
+	hashedPassphrase := c.DeriveSecurePassphrase(passphrase, salt)
 	encryptedHex, iv, err := lib.PerformSymmetricEncryption(hex, hashedPassphrase)
 	if err != nil {
 		return nil, err
@@ -110,5 +111,5 @@ func (c *crypto) CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, 
 		return nil, err
 	}
 
-	return privateKey.PrivateKey, nil
+	return &privateKey, nil
 }

@@ -25,6 +25,7 @@ func (a *authController) LoadController(engine *gin.Engine) {
 
 	{
 		auth.POST("/invite", a.InviteUser)
+		auth.POST("/signup", a.SignUp)
 	}
 }
 
@@ -62,5 +63,27 @@ func (a *authController) InviteUser(c *gin.Context) {
 	}
 
 	invite, _ := a.authService.CreateUserInvite(userGrant.GRANT_OWNER, pk)
-	c.JSON(200, models.GetResponse(invite))
+	c.JSON(200, models.GetResponse(invite.ToDto()))
+}
+
+func (a *authController) SignUp(c *gin.Context) {
+	signupDto := dto.Signup{}
+	err := c.BindJSON(&signupDto)
+	if err != nil {
+		c.Status(400)
+		return
+	}
+
+	user, err := a.authService.SignUpWithEmail(signupDto.Email, signupDto.Password, signupDto.Code, signupDto.InviteId)
+	if err != nil {
+		c.Status(400)
+		return
+	}
+
+	userSymmetricKey := a.authService.GetUserSymmetricKeyFromPassword(user, signupDto.Password)
+	response := dto.SignInResponse{
+		Token: userSymmetricKey,
+	}
+
+	c.JSON(200, models.GetResponse(response))
 }

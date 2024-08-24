@@ -5,9 +5,12 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const aesKeyLength = 32 // bytes
+const derivePasswordHashIter = 32
+const derivePasswordKeyLen = 32
 
 /*
 *
@@ -75,4 +78,14 @@ func Unpad(src []byte, unpaddedLength int) []byte {
 
 	padding := len(src) - unpaddedLength
 	return src[:len(src)-padding]
+}
+
+func HashPassword(password string, salt string) (string, error) {
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password+salt), bcrypt.DefaultCost)
+	return string(hashedBytes), err
+}
+
+func CompareHashAndPassword(hashedPassword, password, salt string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password+salt))
+	return err == nil
 }
