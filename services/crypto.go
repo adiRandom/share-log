@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	eciesgo "github.com/ecies/go/v2"
+	"github.com/go-jose/go-jose/v4"
+	jwtLib "github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/pbkdf2"
 	"math/big"
 	"shareLog/constants"
@@ -50,6 +52,7 @@ type Crypto interface {
 	GenerateSalt() string
 	DeriveSecurePassphrase(password string, salt string) []byte
 	CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, passphrase string, salt string) (*encryption.Key, error)
+	CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error)
 }
 
 type CryptoProvider struct {
@@ -112,4 +115,33 @@ func (c *crypto) CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, 
 	}
 
 	return &privateKey, nil
+}
+
+func (c *crypto) CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error) {
+	pubKey, err := c.keyRepository.GetJwePublicKey()
+	if err != nil {
+		return nil, err
+	}
+
+	encrypter, err := jose.NewEncrypter(jose.A128CBC_HS256, jose.Recipient{Algorithm: jose.RSA1_5, Key: pubKey}, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	signKey, err := c.keyRepository.GetJWTPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	signedToken, err := token.SignedString(signKey)
+	if err != nil {
+		return nil, err
+	}
+
+	jwe, err := encrypter.Encrypt([]byte(signedToken))
+	if err != nil {
+		return nil, err
+	}
+
+	return jwe, nil
 }

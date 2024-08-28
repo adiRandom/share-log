@@ -1,7 +1,8 @@
 package repository
 
 import (
-	"crypto/ed25519"
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
@@ -9,6 +10,7 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 	"gorm.io/gorm"
 	"os"
+	"shareLog/constants"
 	"shareLog/di"
 	"shareLog/lib"
 	"shareLog/models/encryption"
@@ -22,8 +24,10 @@ type keyRepository struct {
 type KeyRepository interface {
 	BaseRepository[encryption.Key]
 	GetPublicKey(t userGrant.Type) *encryption.Key
-	GetJWTVerifyKey() *ed25519.PublicKey
 	CreateDefaultKeys()
+	GetJwePublicKey() (*rsa.PublicKey, error)
+	GetJWTPubKey() (*ecdsa.PublicKey, error)
+	GetJWTPrivateKey() (*ecdsa.PrivateKey, error)
 }
 
 type KeyRepositoryProvider struct {
@@ -46,19 +50,36 @@ func (k *keyRepository) GetPublicKey(t userGrant.Type) *encryption.Key {
 	return &key
 }
 
-func (k *keyRepository) GetJWTVerifyKey() *ed25519.PublicKey {
-	// TODO: Implement this
-	path := ""
-	key, err := k.getPemPublicKey(path)
+func (k *keyRepository) GetJWTPubKey() (*ecdsa.PublicKey, error) {
+	key, err := k.getPemPublicKey(constants.JwtPubKeyPath)
 
 	if err != nil {
-		panic("Error while parsing JWT sign public key: " + err.Error())
+		return nil, err
 	}
-	castedKey := (*key).(ed25519.PublicKey)
-	return &castedKey
+	castedKey := (key).(ecdsa.PublicKey)
+	return &castedKey, nil
 }
 
-func (k *keyRepository) getPemPublicKey(path string) (*any, error) {
+func (k *keyRepository) GetJWTPrivateKey() (*ecdsa.PrivateKey, error) {
+	key, err := k.getPemPublicKey(constants.JwtPkPath)
+
+	if err != nil {
+		return nil, err
+	}
+	castedKey := (key).(ecdsa.PrivateKey)
+	return &castedKey, nil
+}
+
+func (k *keyRepository) GetJwePublicKey() (*rsa.PublicKey, error) {
+	key, err := k.getPemPublicKey(constants.JwePubKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	rsaKey := (key).(*rsa.PublicKey)
+	return rsaKey, nil
+}
+
+func (k *keyRepository) getPemPublicKey(path string) (any, error) {
 	// Read the public key file
 	keyBytes, err := os.ReadFile(path)
 	if err != nil {
@@ -68,6 +89,23 @@ func (k *keyRepository) getPemPublicKey(path string) (*any, error) {
 	pemDecoded, _ := pem.Decode(keyBytes)
 
 	key, err := x509.ParsePKIXPublicKey(pemDecoded.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &key, nil
+}
+
+func (k *keyRepository) getPemPrivateKey(path string) (any, error) {
+	// Read the public key file
+	keyBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	pemDecoded, _ := pem.Decode(keyBytes)
+
+	key, err := x509.ParsePKCS8PrivateKey(pemDecoded.Bytes)
 	if err != nil {
 		return nil, err
 	}

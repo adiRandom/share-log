@@ -2,6 +2,7 @@ package services
 
 import (
 	eciesgo "github.com/ecies/go/v2"
+	"github.com/go-jose/go-jose/v4"
 	jwtLib "github.com/golang-jwt/jwt/v5"
 	"shareLog/data/repository"
 	"shareLog/di"
@@ -9,7 +10,10 @@ import (
 	"shareLog/models"
 	"shareLog/models/userGrant"
 	"strconv"
+	"time"
 )
+
+const oneDay = 1000 * 60 * 60 * 24
 
 type auth struct {
 	userRepository   repository.UserRepository
@@ -35,7 +39,7 @@ type Auth interface {
 	ValidateJWT(token jwtLib.Token) error
 	GetAuthUser(jwt jwtLib.Token) *models.User
 	GetUserSymmetricKey(jwt jwtLib.Token) string
-	GetUserSymmetricKeyFromPassword(user *models.User, password string) string
+	GenerateAuthToken(user *models.User, password string) (*jose.JSONWebEncryption, error)
 	SignUpWithEmail(email string, password string, code string, inviteId uint) (*models.User, error)
 	SignInWithEmail(email string, password string) (*models.User, error)
 	CreateUserInvite(grantType userGrant.Type, pk *eciesgo.PrivateKey) (*models.Invite, error)
@@ -87,8 +91,11 @@ func (a *auth) validateJWTSignature(token jwtLib.Token) error {
 	}
 
 	signature := token.Signature
-	key := a.keyRepository.GetJWTVerifyKey()
-	return token.Method.Verify(tokenAsString, signature, key)
+	verifyKey, err := a.keyRepository.GetJWTPubKey()
+	if err != nil {
+		return err
+	}
+	return token.Method.Verify(tokenAsString, signature, verifyKey)
 }
 
 func (a *auth) extractInvite(inviteId uint, code string) (*models.Invite, error) {
@@ -155,7 +162,16 @@ func (a *auth) SignUpWithEmail(email string, password string, code string, invit
 }
 
 func (a *auth) SignInWithEmail(email string, password string) (*models.User, error) {
-	panic("Not implemented")
+	user, err := a.userRepository.GetByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+
+	if hashMatch := lib.CompareHashAndPassword(user.PasswordHash, password, user.PasswordSalt); !hashMatch {
+		return nil, lib.Error{Msg: "Wrong email or password"}
+	}
+
+	return user, err
 }
 
 func (a *auth) CreateUserInvite(grantType userGrant.Type, sourcePk *eciesgo.PrivateKey) (*models.Invite, error) {
@@ -180,6 +196,26 @@ func (a *auth) CreateUserInvite(grantType userGrant.Type, sourcePk *eciesgo.Priv
 	return invite, nil
 }
 
-func (a *auth) GetUserSymmetricKeyFromPassword(user *models.User, password string) string {
-	return string(a.cryptoService.DeriveSecurePassphrase(password, user.EncryptionKeySalt))
+func (a *auth) GenerateAuthToken(user *models.User, password string) (*jose.JSONWebEncryption, error) {
+	userSymmetricKey := string(a.cryptoService.DeriveSecurePassphrase(password, user.EncryptionKeySalt))
+	jwt := a.createJWT(user, userSymmetricKey)
+	return a.cryptoService.CreateJwe(jwt)
+}
+
+func (a *auth) createJWT(user *models.User, userSymmetricKey string) *jwtLib.Token {
+	exp := time.Now().Add(oneDay)
+
+	claims := jwtClaims{
+		jwtLib.RegisteredClaims{
+			Subject: strconv.Itoa(int(user.ID)),
+			ExpiresAt: &jwtLib.NumericDate{
+				Time: exp,
+			},
+		},
+		userSymmetricKey,
+	}
+
+	signingMethod := jwtLib.SigningMethodES256
+
+	return jwtLib.NewWithClaims(signingMethod, claims)
 }

@@ -80,9 +80,14 @@ func (a *authController) SignUp(c *gin.Context) {
 		return
 	}
 
-	userSymmetricKey := a.authService.GetUserSymmetricKeyFromPassword(user, signupDto.Password)
+	token, err := a.authService.GenerateAuthToken(user, signupDto.Password)
+	if err != nil {
+		c.Status(500)
+		return
+	}
+
 	response := dto.SignInResponse{
-		Token: userSymmetricKey,
+		Token: token.FullSerialize(),
 	}
 
 	c.JSON(200, models.GetResponse(response))
