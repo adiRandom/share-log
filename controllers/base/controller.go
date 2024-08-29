@@ -1,9 +1,9 @@
 package base
 
 import (
-	"crypto/sha256"
 	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/pbkdf2"
+	jwtLib "github.com/golang-jwt/jwt/v5"
+	"shareLog/constants"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/middleware"
@@ -36,20 +36,24 @@ func (b BaseControllerProvider) Provide() any {
 }
 
 func (b *baseController) GetUser(c *gin.Context) *models.User {
-	//jwt, exists := c.Get(constants.ContextJWTKey)
-	//if !exists {
-	//	c.Status(401)
-	//	return nil
-	//}
-	//
-	//user := b.authService.GetAuthUser(jwt.(jwtLib.Token))
-	//return user
+	jwt, exists := c.Get(constants.ContextJWTKey)
+	if !exists {
+		c.Status(401)
+		return nil
+	}
 
-	return b.userRepository.GetByIdWithPrivateKey(1000)
+	user := b.authService.GetAuthUser(*jwt.(*jwtLib.Token))
+	return user
 }
 
-func (b *baseController) GetUserSymmetricKey(c *gin.Context) []byte {
-	return pbkdf2.Key([]byte("test"), []byte("salt"), 32, 32, sha256.New)
+func (b *baseController) GetUserSymmetricKey(c *gin.Context) string {
+	jwt, exists := c.Get(constants.ContextJWTKey)
+	if !exists {
+		c.Status(401)
+		return ""
+	}
+
+	return b.authService.GetUserSymmetricKey(*jwt.(*jwtLib.Token))
 }
 
 func (b *baseController) WithAuth(g *gin.RouterGroup) {

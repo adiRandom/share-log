@@ -53,6 +53,10 @@ type Crypto interface {
 	DeriveSecurePassphrase(password string, salt string) []byte
 	CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, passphrase string, salt string) (*encryption.Key, error)
 	CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error)
+	/*
+		Return the signed string representing the underlying JWT
+	*/
+	DecodeJwe(serializedJwe string) (string, error)
 }
 
 type CryptoProvider struct {
@@ -144,4 +148,23 @@ func (c *crypto) CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error)
 	}
 
 	return jwe, nil
+}
+
+func (c *crypto) DecodeJwe(serializedJwe string) (string, error) {
+	jwe, err := jose.ParseEncrypted(serializedJwe, []jose.KeyAlgorithm{jose.RSA1_5}, []jose.ContentEncryption{jose.A128CBC_HS256})
+	if err != nil {
+		return "", err
+	}
+
+	pk, err := c.keyRepository.GetJWTPrivateKey()
+	if err != nil {
+		return "", err
+	}
+
+	signedJwtBytes, err := jwe.Decrypt(pk)
+	if err != nil {
+		return "", err
+	}
+
+	return string(signedJwtBytes), err
 }

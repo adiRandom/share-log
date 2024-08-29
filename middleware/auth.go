@@ -2,11 +2,14 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/go-jose/go-jose/v4"
+	"shareLog/constants"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/services"
+	"strings"
 )
+
+const tokenPrefix = "Bearer "
 
 type auth struct {
 	userRepository repository.UserRepository
@@ -37,43 +40,28 @@ func (p AuthProvider) Provide() any {
 }
 
 func (a *auth) AuthUser(c *gin.Context) {
-	//jwe := getJWEFromHeader(c)
-	//if jwe == nil {
-	//	return
-	//}
-	//
-	//jwt := a.cryptoService.DecodeJWE(jwe)
-	//validationError := a.authService.ValidateJWT(*jwt)
-	//if validationError != nil {
-	//	c.Status(403)
-	//	println(validationError)
-	//	return
-	//}
-	//
-	//c.Set(constants.ContextJWTKey, jwt)
-	//c.Next()
-}
 
-func getJWEFromHeader(c *gin.Context) *jose.JSONWebEncryption {
-	//jweString := c.GetHeader("Authorization")
-	//if jweString == "" {
-	//	c.Status(401)
-	//	println("No JWE provided")
-	//	return nil
-	//}
-	//
-	//jwe, err := jose.ParseEncryptedJSON(jweString,
-	//	[]jose.KeyAlgorithm{constants.AuthJWEKeyAlgo},
-	//	[]jose.ContentEncryption{constants.AuthJWEContentAlgo},
-	//)
-	//
-	//if err != nil {
-	//	c.Status(401)
-	//	println(err)
-	//	return nil
-	//}
-	//
-	//return jwe
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.Status(401)
+		return
+	}
 
-	panic("Not implemented")
+	jwe, _ := strings.CutPrefix(authHeader, tokenPrefix)
+
+	serializedJwt, err := a.cryptoService.DecodeJwe(jwe)
+	if err != nil {
+		c.Status(401)
+		return
+	}
+
+	jwt, validationError := a.authService.ParseAndValidateJWT(serializedJwt)
+	if validationError != nil {
+		c.Status(401)
+		println(validationError)
+		return
+	}
+
+	c.Set(constants.ContextJWTKey, jwt)
+	c.Next()
 }

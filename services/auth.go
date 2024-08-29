@@ -36,7 +36,7 @@ func (j jwtClaims) Validate() error {
 }
 
 type Auth interface {
-	ValidateJWT(token jwtLib.Token) error
+	ParseAndValidateJWT(signedJwt string) (*jwtLib.Token, error)
 	GetAuthUser(jwt jwtLib.Token) *models.User
 	GetUserSymmetricKey(jwt jwtLib.Token) string
 	GenerateAuthToken(user *models.User, password string) (*jose.JSONWebEncryption, error)
@@ -74,28 +74,21 @@ func (a *auth) GetUserSymmetricKey(jwt jwtLib.Token) string {
 	return claims.symmetricKey
 }
 
-func (a *auth) ValidateJWT(token jwtLib.Token) error {
-	validator := jwtLib.NewValidator(jwtLib.WithExpirationRequired())
-	err := validator.Validate(token.Claims)
+func (a *auth) ParseAndValidateJWT(signedJwt string) (*jwtLib.Token, error) {
+	token, err := jwtLib.ParseWithClaims(signedJwt, &jwtClaims{}, func(token *jwtLib.Token) (interface{}, error) {
+		return a.keyRepository.GetJWTPubKey()
+	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return a.validateJWTSignature(token)
-}
-
-func (a *auth) validateJWTSignature(token jwtLib.Token) error {
-	tokenAsString, err := token.SigningString()
+	tokenValidator := jwtLib.NewValidator(jwtLib.WithExpirationRequired())
+	err = tokenValidator.Validate(token.Claims)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	signature := token.Signature
-	verifyKey, err := a.keyRepository.GetJWTPubKey()
-	if err != nil {
-		return err
-	}
-	return token.Method.Verify(tokenAsString, signature, verifyKey)
+	return token, nil
 }
 
 func (a *auth) extractInvite(inviteId uint, code string) (*models.Invite, error) {
