@@ -160,7 +160,7 @@ func (c *crypto) CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error)
 }
 
 func (c *crypto) DecodeJwe(serializedJwe string) (string, error) {
-	jwe, err := jose.ParseEncrypted(serializedJwe, []jose.KeyAlgorithm{jose.RSA1_5}, []jose.ContentEncryption{jose.A128CBC_HS256})
+	jwe, err := jose.ParseEncryptedCompact(serializedJwe, []jose.KeyAlgorithm{jose.RSA1_5}, []jose.ContentEncryption{jose.A128CBC_HS256})
 	if err != nil {
 		return "", err
 	}
