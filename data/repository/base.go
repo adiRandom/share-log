@@ -13,6 +13,7 @@ type BaseRepository[T any] interface {
 	getDb() *gorm.DB
 	Save(model *T) error
 	GetById(id uint) *T
+	Count() (int64, error)
 }
 
 func newBaseRepository[T any](db *gorm.DB) baseRepository[T] {
@@ -42,4 +43,17 @@ func (r *baseRepository[T]) GetById(id uint) *T {
 	}
 
 	return &result
+}
+
+func (r *baseRepository[T]) Count() (int64, error) {
+	db := r.getDb()
+	var result int64
+	var model T
+	err := db.Model(&model).Count(&result).Error
+
+	if err != nil {
+		return 0, err
+	}
+
+	return result, nil
 }

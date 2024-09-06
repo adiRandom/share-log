@@ -3,16 +3,12 @@ package repository
 import (
 	"crypto/ecdsa"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
-	eciesgo "github.com/ecies/go/v2"
-	"golang.org/x/crypto/pbkdf2"
 	"gorm.io/gorm"
 	"os"
 	"shareLog/constants"
 	"shareLog/di"
-	"shareLog/lib"
 	"shareLog/models/encryption"
 	"shareLog/models/userGrant"
 )
@@ -24,7 +20,6 @@ type keyRepository struct {
 type KeyRepository interface {
 	BaseRepository[encryption.Key]
 	GetPublicKey(t userGrant.Type) *encryption.Key
-	CreateDefaultKeys()
 	GetJwePublicKey() (*rsa.PublicKey, error)
 	GetJWTPubKey() (*ecdsa.PublicKey, error)
 	GetJWTPrivateKey() (*ecdsa.PrivateKey, error)
@@ -56,18 +51,18 @@ func (k *keyRepository) GetJWTPubKey() (*ecdsa.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	castedKey := (key).(ecdsa.PublicKey)
-	return &castedKey, nil
+	castedKey := (key).(*ecdsa.PublicKey)
+	return castedKey, nil
 }
 
 func (k *keyRepository) GetJWTPrivateKey() (*ecdsa.PrivateKey, error) {
-	key, err := k.getPemPublicKey(constants.JwtPkPath)
+	key, err := k.getPemPrivateKey(constants.JwtPkPath)
 
 	if err != nil {
 		return nil, err
 	}
-	castedKey := (key).(ecdsa.PrivateKey)
-	return &castedKey, nil
+	castedKey := (key).(*ecdsa.PrivateKey)
+	return castedKey, nil
 }
 
 func (k *keyRepository) GetJwePublicKey() (*rsa.PublicKey, error) {
@@ -93,7 +88,7 @@ func (k *keyRepository) getPemPublicKey(path string) (any, error) {
 		return nil, err
 	}
 
-	return &key, nil
+	return key, nil
 }
 
 func (k *keyRepository) getPemPrivateKey(path string) (any, error) {
@@ -107,36 +102,14 @@ func (k *keyRepository) getPemPrivateKey(path string) (any, error) {
 
 	key, err := x509.ParsePKCS8PrivateKey(pemDecoded.Bytes)
 	if err != nil {
-		return nil, err
+		// try EC format instead of PKIX format
+		ecKey, err := x509.ParseECPrivateKey(pemDecoded.Bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		return ecKey, nil
 	}
 
-	return &key, nil
-}
-
-// Test code
-
-func (k *keyRepository) CreateDefaultKeys() {
-	var keyCount int64
-	if k.db.Model(&encryption.Key{}).Where("id = 1000").First(&encryption.Key{}).Count(&keyCount); keyCount > 0 {
-		return
-	}
-
-	key, _ := eciesgo.GenerateKey()
-	encryptedHex, iv, _ := lib.PerformSymmetricEncryption(key.Hex(), pbkdf2.Key([]byte("test"), []byte("salt"), 32, 32, sha256.New))
-	pk, _ := encryption.NewPrivateKeyFromHex(encryptedHex, iv)
-
-	var userId uint = 1000
-	keyModel := encryption.Key{
-		Model: gorm.Model{
-			ID: 1000,
-		},
-		UserID:    &userId,
-		UserGrant: userGrant.GRANT_OWNER,
-		PublicKey: &encryption.PublicKey{
-			Key: key.PublicKey,
-		},
-		PrivateKey: pk,
-	}
-
-	k.db.Create(&keyModel)
+	return key, nil
 }

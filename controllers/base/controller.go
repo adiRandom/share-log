@@ -16,7 +16,7 @@ type BaseController interface {
 	//  WithAuth(g *gin.RouterGroup)
 
 	// GetUserSymmetricKey Return the key this user uses to encrypt and decrypt all their other keys
-	GetUserSymmetricKey(c *gin.Context) []byte
+	GetUserSymmetricKey(c *gin.Context) string
 }
 
 type baseController struct {

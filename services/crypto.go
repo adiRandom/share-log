@@ -51,6 +51,7 @@ type Crypto interface {
 	DecryptMessage(opt *DecryptOptions) (string, error)
 	GenerateSalt() string
 	DeriveSecurePassphrase(password string, salt string) []byte
+	CreateFirstEncryptionKey(t userGrant.Type, passphrase string, salt string) (*encryption.Key, error)
 	CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, passphrase string, salt string) (*encryption.Key, error)
 	CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error)
 	/*
@@ -119,6 +120,14 @@ func (c *crypto) CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, 
 	}
 
 	return &privateKey, nil
+}
+
+func (c *crypto) CreateFirstEncryptionKey(t userGrant.Type, passphrase string, salt string) (*encryption.Key, error) {
+	key, err := eciesgo.GenerateKey()
+	if err != nil {
+		return nil, err
+	}
+	return c.CreateEncryptionKey(key, t, passphrase, salt)
 }
 
 func (c *crypto) CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error) {

@@ -8,6 +8,7 @@ import (
 	"shareLog/di"
 	"shareLog/lib"
 	"shareLog/models"
+	"shareLog/models/encryption"
 	"shareLog/models/userGrant"
 	"strconv"
 	"time"
@@ -43,6 +44,7 @@ type Auth interface {
 	SignUpWithEmail(email string, password string, code string, inviteId uint) (*models.User, error)
 	SignInWithEmail(email string, password string) (*models.User, error)
 	CreateUserInvite(grantType userGrant.Type, pk *eciesgo.PrivateKey) (*models.Invite, error)
+	SignUpFirstUser(email string, password string) (*models.User, error)
 }
 
 type AuthProvider struct {
@@ -133,6 +135,11 @@ func (a *auth) SignUpWithEmail(email string, password string, code string, invit
 		return nil, err
 	}
 
+	return a.signUpUserWithKey(email, password, key, keySalt)
+}
+
+func (a *auth) signUpUserWithKey(email string, password string, key *encryption.Key, keySalt string) (*models.User, error) {
+
 	passwordSalt := a.cryptoService.GenerateSalt()
 	hashedPassword, err := lib.HashPassword(password, passwordSalt)
 	if err != nil {
@@ -208,7 +215,17 @@ func (a *auth) createJWT(user *models.User, userSymmetricKey string) *jwtLib.Tok
 		userSymmetricKey,
 	}
 
-	signingMethod := jwtLib.SigningMethodES256
+	signingMethod := jwtLib.SigningMethodES512
 
 	return jwtLib.NewWithClaims(signingMethod, claims)
+}
+
+func (a *auth) SignUpFirstUser(email string, password string) (*models.User, error) {
+	keySalt := a.cryptoService.GenerateSalt()
+	key, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.GRANT_OWNER, password, keySalt)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.signUpUserWithKey(email, password, key, keySalt)
 }
