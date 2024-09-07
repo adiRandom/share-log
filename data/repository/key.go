@@ -23,6 +23,7 @@ type KeyRepository interface {
 	GetJwePublicKey() (*rsa.PublicKey, error)
 	GetJWTPubKey() (*ecdsa.PublicKey, error)
 	GetJWTPrivateKey() (*ecdsa.PrivateKey, error)
+	GetJWEPrivateKey() (*rsa.PrivateKey, error)
 }
 
 type KeyRepositoryProvider struct {
@@ -62,6 +63,15 @@ func (k *keyRepository) GetJWTPrivateKey() (*ecdsa.PrivateKey, error) {
 		return nil, err
 	}
 	castedKey := (key).(*ecdsa.PrivateKey)
+	return castedKey, nil
+}
+func (k *keyRepository) GetJWEPrivateKey() (*rsa.PrivateKey, error) {
+	key, err := k.getPemPrivateKey(constants.JwePkPath)
+
+	if err != nil {
+		return nil, err
+	}
+	castedKey := (key).(*rsa.PrivateKey)
 	return castedKey, nil
 }
 

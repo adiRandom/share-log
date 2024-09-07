@@ -165,7 +165,7 @@ func (c *crypto) DecodeJwe(serializedJwe string) (string, error) {
 		return "", err
 	}
 
-	pk, err := c.keyRepository.GetJWTPrivateKey()
+	pk, err := c.keyRepository.GetJWEPrivateKey()
 	if err != nil {
 		return "", err
 	}
