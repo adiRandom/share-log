@@ -171,8 +171,14 @@ func (a *authController) signIn(c *gin.Context) {
 		return
 	}
 
+	serializedToken, err := token.CompactSerialize()
+	if err != nil {
+		c.Status(500)
+		return
+	}
+
 	response := dto.SignInResponse{
-		Token: token.FullSerialize(),
+		Token: serializedToken,
 	}
 
 	c.JSON(200, models.GetResponse(response))
