@@ -7,9 +7,12 @@ import (
 
 type User struct {
 	gorm.Model
-	Email             string
-	PasswordHash      string
-	PasswordSalt      string
+	Email        string
+	PasswordHash string
+	PasswordSalt string
+	/**
+	Used to derive a the user symmetric key to encrypt/decrypt keys
+	*/
 	EncryptionKeySalt string
-	EncryptionKey     *encryption.Key
+	EncryptionKeys    []encryption.Key `gorm:"foreignKey:OwnerId"`
 }

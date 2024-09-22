@@ -10,15 +10,15 @@ type userRepository struct {
 	baseRepository[models.User]
 }
 
-func (u *userRepository) GetByIdWithPrivateKey(id uint) *models.User {
+func (u *userRepository) GetByIdWithPrivateKeys(id uint) *models.User {
 	var user models.User
-	u.getDb().Model(&models.User{}).Preload("EncryptionKey").First(&user, id)
+	u.getDb().Model(&models.User{}).Preload("EncryptionKeys").First(&user, id)
 	return &user
 }
 
 type UserRepository interface {
 	BaseRepository[models.User]
-	GetByIdWithPrivateKey(id uint) *models.User
+	GetByIdWithPrivateKeys(id uint) *models.User
 	GetByEmail(email string) (*models.User, error)
 }
 

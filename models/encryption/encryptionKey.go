@@ -6,28 +6,18 @@ import (
 	"shareLog/models/userGrant"
 )
 
+type KeyOwnerEntityType string
+
+const USER_ENTITY_TYPE KeyOwnerEntityType = "user"
+const INVITE_ENTITY_TYPE KeyOwnerEntityType = "invite"
+
 type Key struct {
 	gorm.Model
-	UserID     *uint
+	OwnerId    uint
+	OwnerType  KeyOwnerEntityType
 	PublicKey  *PublicKey
 	PrivateKey *PrivateKey `gorm:"embedded;embeddedPrefix:pk_"`
 	UserGrant  userGrant.Type
-}
-
-func NewPrivateKey(encryptedHex string, iv string, t userGrant.Type) Key {
-	return Key{
-		PublicKey:  nil,
-		PrivateKey: &PrivateKey{EncryptedHex: encryptedHex, Iv: iv},
-		UserGrant:  t,
-	}
-}
-
-func NewPublicKey(key *eciesgo.PublicKey, t userGrant.Type) Key {
-	return Key{
-		PublicKey:  &PublicKey{key},
-		PrivateKey: nil,
-		UserGrant:  t,
-	}
 }
 
 func NewEncryptionKey(pubKey *eciesgo.PublicKey, pkEncryptedHex string, pkIv string, t userGrant.Type) Key {

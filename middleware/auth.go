@@ -44,6 +44,7 @@ func (a *auth) AuthUser(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
 		c.Status(401)
+		c.Abort()
 		return
 	}
 
@@ -52,6 +53,7 @@ func (a *auth) AuthUser(c *gin.Context) {
 	serializedJwt, err := a.cryptoService.DecodeJwe(jwe)
 	if err != nil {
 		c.Status(401)
+		c.Abort()
 		return
 	}
 
@@ -59,6 +61,7 @@ func (a *auth) AuthUser(c *gin.Context) {
 	if validationError != nil {
 		c.Status(401)
 		println(validationError)
+		c.Abort()
 		return
 	}
 

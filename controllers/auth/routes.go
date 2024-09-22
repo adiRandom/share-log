@@ -1,13 +1,13 @@
 package auth
 
 import (
+	eciesgo "github.com/ecies/go/v2"
 	"github.com/gin-gonic/gin"
 	"shareLog/controllers/base"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/models"
 	"shareLog/models/dto"
-	"shareLog/models/userGrant"
 	"shareLog/services"
 )
 
@@ -25,10 +25,15 @@ func (a *authController) LoadController(engine *gin.Engine) {
 	auth := engine.Group("/auth")
 
 	{
-		auth.POST("/invite", a.inviteUser)
 		auth.POST("/signup", a.signUp)
 		auth.POST("/signin", a.signIn)
 		auth.POST("/signup/init", a.signUpFirstUser)
+	}
+
+	invite := engine.Group("/auth/invite")
+	a.WithAuth(invite)
+	{
+		invite.POST("/", a.inviteUser)
 	}
 }
 
@@ -51,9 +56,6 @@ func (a ControllerProvider) Provide() any {
 
 func (a *authController) inviteUser(c *gin.Context) {
 	user := a.GetUser(c)
-	if user == nil {
-		c.Status(401)
-	}
 
 	var createInviteDto dto.CreateInvite
 	err := c.BindJSON(&createInviteDto)
@@ -62,14 +64,19 @@ func (a *authController) inviteUser(c *gin.Context) {
 		return
 	}
 
-	pk, err := user.EncryptionKey.PrivateKey.Key([]byte(a.GetUserSymmetricKey(c)))
-	if err != nil {
-		c.JSON(403, models.GetResponse(
-			dto.Error{Code: 403, Message: "Wrong credentials"}))
-		return
+	pks := make([]eciesgo.PrivateKey, 0)
+	for _, key := range user.EncryptionKeys {
+		pk, pkError := key.PrivateKey.Key([]byte(a.GetUserSymmetricKey(c)))
+		if pkError != nil {
+			c.JSON(403, models.GetResponse(
+				dto.Error{Code: 403, Message: "Wrong credentials"}))
+			return
+		}
+
+		pks = append(pks, *pk)
 	}
 
-	invite, _ := a.authService.CreateUserInvite(userGrant.GRANT_OWNER, pk)
+	invite, _ := a.authService.CreateUserInvite(createInviteDto.Grant, pks)
 	c.JSON(200, models.GetResponse(invite.ToDto()))
 }
 

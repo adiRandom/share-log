@@ -51,13 +51,14 @@ type Crypto interface {
 	DecryptMessage(opt *DecryptOptions) (string, error)
 	GenerateSalt() string
 	DeriveSecurePassphrase(password string, salt string) []byte
-	CreateFirstEncryptionKey(t userGrant.Type, passphrase string, salt string) (*encryption.Key, error)
+	CreateFirstEncryptionKey(t userGrant.Type, password string, salt string) (*encryption.Key, error)
 	CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, passphrase string, salt string) (*encryption.Key, error)
 	CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error)
 	/*
 		Return the signed string representing the underlying JWT
 	*/
 	DecodeJwe(serializedJwe string) (string, error)
+	DeriveUserSymmetricKey(password string, salt string) string
 }
 
 type CryptoProvider struct {
@@ -80,8 +81,10 @@ func (c *crypto) EncryptOwnerLevel(data string) (string, error) {
 }
 
 func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
-	// TODO: Get the appropriate Level key
-	privateKey, err := opt.Usr.EncryptionKey.PrivateKey.Key([]byte(opt.UsrSymmetricKey))
+	key := lib.Find(opt.Usr.EncryptionKeys, func(key encryption.Key) bool {
+		return key.UserGrant == opt.Level
+	})
+	privateKey, err := key.PrivateKey.Key([]byte(opt.UsrSymmetricKey))
 	if err != nil {
 		return "", err
 	}
@@ -107,27 +110,23 @@ func (c *crypto) GenerateSalt() string {
 
 func (c *crypto) CreateEncryptionKey(key *eciesgo.PrivateKey, t userGrant.Type, passphrase string, salt string) (*encryption.Key, error) {
 	hex := key.Hex()
-	hashedPassphrase := c.DeriveSecurePassphrase(passphrase, salt)
-	encryptedHex, iv, err := lib.PerformSymmetricEncryption(hex, hashedPassphrase)
+	userSymmetricKey := c.DeriveUserSymmetricKey(passphrase, salt)
+	encryptedHex, iv, err := lib.PerformSymmetricEncryption(hex, []byte(userSymmetricKey))
 	if err != nil {
 		return nil, err
 	}
 
 	privateKey := encryption.NewEncryptionKey(key.PublicKey, encryptedHex, iv, t)
-	err = c.keyRepository.Save(&privateKey)
-	if err != nil {
-		return nil, err
-	}
 
 	return &privateKey, nil
 }
 
-func (c *crypto) CreateFirstEncryptionKey(t userGrant.Type, passphrase string, salt string) (*encryption.Key, error) {
+func (c *crypto) CreateFirstEncryptionKey(t userGrant.Type, password string, salt string) (*encryption.Key, error) {
 	key, err := eciesgo.GenerateKey()
 	if err != nil {
 		return nil, err
 	}
-	return c.CreateEncryptionKey(key, t, passphrase, salt)
+	return c.CreateEncryptionKey(key, t, password, salt)
 }
 
 func (c *crypto) CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error) {
@@ -150,6 +149,10 @@ func (c *crypto) CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error)
 	if err != nil {
 		return nil, err
 	}
+
+	parsed, err := jwtLib.ParseWithClaims(signedToken, jwtClaims{}, func(t *jwtLib.Token) (interface{}, error) { return c.keyRepository.GetJWTPubKey() })
+	parsedClaims := parsed.Claims.(jwtClaims).SymmetricKey
+	print(parsedClaims)
 
 	jwe, err := encrypter.Encrypt([]byte(signedToken))
 	if err != nil {
@@ -176,4 +179,9 @@ func (c *crypto) DecodeJwe(serializedJwe string) (string, error) {
 	}
 
 	return string(signedJwtBytes), err
+}
+
+func (c *crypto) DeriveUserSymmetricKey(password string, salt string) string {
+	strongPassphrase := c.DeriveSecurePassphrase(password, salt)
+	return lib.EnsureBase64(string(strongPassphrase))
 }

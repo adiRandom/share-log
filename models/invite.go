@@ -4,12 +4,13 @@ import (
 	"gorm.io/gorm"
 	"shareLog/lib"
 	"shareLog/models/dto"
+	"shareLog/models/encryption"
 	"shareLog/models/userGrant"
 )
 
 type Invite struct {
 	gorm.Model
-	KeyId    uint
+	Keys     []encryption.Key `gorm:"foreignKey:OwnerId"`
 	CodeHash string
 	// The salt used for hashing the code and storing it in the database
 	HashSalt string
@@ -18,7 +19,7 @@ type Invite struct {
 	Grant      userGrant.Type
 }
 
-func NewInvite(keyId uint, code, deriveSalt, hashSalt string, grant userGrant.Type) (*Invite, error) {
+func NewInvite(keys []encryption.Key, code, deriveSalt, hashSalt string, grant userGrant.Type) (*Invite, error) {
 	hashedCode, err := lib.HashPassword(code, hashSalt)
 	if err != nil {
 		return nil, err
@@ -26,11 +27,10 @@ func NewInvite(keyId uint, code, deriveSalt, hashSalt string, grant userGrant.Ty
 
 	return &Invite{
 
-		KeyId:      keyId,
-		HashSalt:   hashSalt,
-		CodeHash:   hashedCode,
-		DeriveSalt: deriveSalt,
-		Grant:      grant,
+		Keys:     keys,
+		HashSalt: hashSalt,
+		CodeHash: hashedCode,
+		Grant:    grant,
 	}, nil
 }
 

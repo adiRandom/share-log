@@ -24,11 +24,11 @@ type auth struct {
 }
 
 /*
-symmetricKey is the key used by this userGrant to secure all their other encryption keys
+SymmetricKey is the key used by this userGrant to secure all their other encryption keys
 */
 type jwtClaims struct {
 	jwtLib.RegisteredClaims
-	symmetricKey string
+	SymmetricKey string `json:"userSymmetricKey"`
 }
 
 func (j jwtClaims) Validate() error {
@@ -43,7 +43,7 @@ type Auth interface {
 	GenerateAuthToken(user *models.User, password string) (*jose.JSONWebEncryption, error)
 	SignUpWithEmail(email string, password string, code string, inviteId uint) (*models.User, error)
 	SignInWithEmail(email string, password string) (*models.User, error)
-	CreateUserInvite(grantType userGrant.Type, pk *eciesgo.PrivateKey) (*models.Invite, error)
+	CreateUserInvite(grantType userGrant.Type, pks []eciesgo.PrivateKey) (*models.Invite, error)
 	SignUpFirstUser(email string, password string) (*models.User, error)
 }
 
@@ -60,20 +60,19 @@ func (p AuthProvider) Provide() any {
 }
 
 func (a *auth) GetAuthUser(jwt jwtLib.Token) *models.User {
-	claims := jwt.Claims.(jwtClaims)
+	claims := jwt.Claims.(*jwtClaims)
 	userId, err := strconv.ParseInt(claims.Subject, 10, 32)
 	if err != nil {
 		println(err)
 		return nil
 	}
-
-	user := a.userRepository.GetById(uint(userId))
+	user := a.userRepository.GetByIdWithPrivateKeys(uint(userId))
 	return user
 }
 
 func (a *auth) GetUserSymmetricKey(jwt jwtLib.Token) string {
-	claims := jwt.Claims.(jwtClaims)
-	return claims.symmetricKey
+	claims := jwt.Claims.(*jwtClaims)
+	return claims.SymmetricKey
 }
 
 func (a *auth) ParseAndValidateJWT(signedJwt string) (*jwtLib.Token, error) {
@@ -107,19 +106,26 @@ func (a *auth) extractInvite(inviteId uint, code string) (*models.Invite, error)
 	return invite, nil
 }
 
-func (a *auth) extractSourcePrivateKeyFromInvite(invite *models.Invite, code string) (*eciesgo.PrivateKey, error) {
+func (a *auth) extractSourcePrivateKeysFromInvite(invite *models.Invite, code string) ([]eciesgo.PrivateKey, error) {
 	tempKeyPassphrase := a.cryptoService.DeriveSecurePassphrase(code, invite.DeriveSalt)
 
-	sourceKey := a.keyRepository.GetById(invite.KeyId)
-	if sourceKey == nil || sourceKey.PrivateKey == nil {
-		return nil, lib.Error{Msg: "Invalid key"}
-	}
-	sourcePk, err := sourceKey.PrivateKey.Key(tempKeyPassphrase)
-	if err != nil {
+	// TODO: Delete temp key after invite
+	sourceKey := invite.Keys
+	if len(sourceKey) == 0 {
 		return nil, lib.Error{Msg: "Invalid invite"}
 	}
 
-	return sourcePk, nil
+	sourcePks := make([]eciesgo.PrivateKey, 0)
+	for _, sourceKey := range sourceKey {
+		sourcePk, err := sourceKey.PrivateKey.Key(tempKeyPassphrase)
+		if err != nil {
+			return nil, lib.Error{Msg: "Invalid invite"}
+		}
+
+		sourcePks = append(sourcePks, *sourcePk)
+	}
+
+	return sourcePks, nil
 }
 
 func (a *auth) SignUpWithEmail(email string, password string, code string, inviteId uint) (*models.User, error) {
@@ -127,31 +133,38 @@ func (a *auth) SignUpWithEmail(email string, password string, code string, invit
 	if err != nil {
 		return nil, err
 	}
-	sourcePk, err := a.extractSourcePrivateKeyFromInvite(invite, code)
+	sourcePks, err := a.extractSourcePrivateKeysFromInvite(invite, code)
 
+	keys := make([]encryption.Key, 0)
 	keySalt := a.cryptoService.GenerateSalt()
-	key, err := a.cryptoService.CreateEncryptionKey(sourcePk, invite.Grant, password, keySalt)
-	if err != nil {
-		return nil, err
+	for _, key := range sourcePks {
+		encryptedKey, err := a.cryptoService.CreateEncryptionKey(&key, invite.Grant, password, keySalt)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, *encryptedKey)
 	}
 
-	return a.signUpUserWithKey(email, password, key, keySalt)
+	return a.signUpUserWithKeys(email, password, keys, keySalt)
 }
 
-func (a *auth) signUpUserWithKey(email string, password string, key *encryption.Key, keySalt string) (*models.User, error) {
-
+func (a *auth) signUpUserWithKeys(email string, password string, keys []encryption.Key, keySalt string) (*models.User, error) {
 	passwordSalt := a.cryptoService.GenerateSalt()
 	hashedPassword, err := lib.HashPassword(password, passwordSalt)
 	if err != nil {
 		return nil, err
 	}
 
+	for i, _ := range keys {
+		keys[i].OwnerType = encryption.USER_ENTITY_TYPE
+	}
+
 	user := models.User{
 		Email:             email,
 		PasswordHash:      hashedPassword,
 		PasswordSalt:      passwordSalt,
-		EncryptionKey:     key,
 		EncryptionKeySalt: keySalt,
+		EncryptionKeys:    keys,
 	}
 	err = a.userRepository.Save(&user)
 	if err != nil {
@@ -174,19 +187,22 @@ func (a *auth) SignInWithEmail(email string, password string) (*models.User, err
 	return user, err
 }
 
-func (a *auth) CreateUserInvite(grantType userGrant.Type, sourcePk *eciesgo.PrivateKey) (*models.Invite, error) {
+func (a *auth) CreateUserInvite(grantType userGrant.Type, sourcePks []eciesgo.PrivateKey) (*models.Invite, error) {
 	code := a.cryptoService.GenerateSalt()
-	// TODO: Remove this
-	print(code)
 	deriveSalt := a.cryptoService.GenerateSalt()
 	hashSalt := a.cryptoService.GenerateSalt()
 
-	key, err := a.cryptoService.CreateEncryptionKey(sourcePk, grantType, code, deriveSalt)
-	if err != nil {
-		return nil, err
+	keys := make([]encryption.Key, 0)
+	for _, sourcePk := range sourcePks {
+		key, err := a.cryptoService.CreateEncryptionKey(&sourcePk, grantType, code, deriveSalt)
+		if err != nil {
+			return nil, err
+		}
+		key.OwnerType = encryption.INVITE_ENTITY_TYPE
+		keys = append(keys, *key)
 	}
 
-	invite, err := models.NewInvite(key.ID, code, deriveSalt, hashSalt, grantType)
+	invite, err := models.NewInvite(keys, code, deriveSalt, hashSalt, grantType)
 	if err != nil {
 		return nil, err
 	}
@@ -197,13 +213,15 @@ func (a *auth) CreateUserInvite(grantType userGrant.Type, sourcePk *eciesgo.Priv
 }
 
 func (a *auth) GenerateAuthToken(user *models.User, password string) (*jose.JSONWebEncryption, error) {
-	userSymmetricKey := string(a.cryptoService.DeriveSecurePassphrase(password, user.EncryptionKeySalt))
+	userSymmetricKey := a.cryptoService.DeriveUserSymmetricKey(password, user.EncryptionKeySalt)
 	jwt := a.createJWT(user, userSymmetricKey)
+	x := jwt.Claims.(jwtClaims).SymmetricKey
+	print(x)
 	return a.cryptoService.CreateJwe(jwt)
 }
 
 func (a *auth) createJWT(user *models.User, userSymmetricKey string) *jwtLib.Token {
-	exp := time.Now().Add(oneDay)
+	exp := time.Now().Add(time.Hour * 24)
 
 	claims := jwtClaims{
 		jwtLib.RegisteredClaims{
@@ -222,10 +240,17 @@ func (a *auth) createJWT(user *models.User, userSymmetricKey string) *jwtLib.Tok
 
 func (a *auth) SignUpFirstUser(email string, password string) (*models.User, error) {
 	keySalt := a.cryptoService.GenerateSalt()
-	key, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.GRANT_OWNER, password, keySalt)
+	ownerKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.GRANT_OWNER, password, keySalt)
 	if err != nil {
 		return nil, err
 	}
 
-	return a.signUpUserWithKey(email, password, key, keySalt)
+	clientKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.GRANT_CLIENT, password, keySalt)
+	if err != nil {
+		return nil, err
+	}
+
+	keys := []encryption.Key{*ownerKey, *clientKey}
+
+	return a.signUpUserWithKeys(email, password, keys, keySalt)
 }
