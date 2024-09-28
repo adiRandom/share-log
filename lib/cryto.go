@@ -8,7 +8,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const aesKeyLength = 32 // bytes
+const AesKeyLength = 32 // bytes
 const derivePasswordHashIter = 32
 const derivePasswordKeyLen = 32
 
@@ -17,7 +17,7 @@ const derivePasswordKeyLen = 32
 @returns cypher text, iv, err
 */
 func PerformSymmetricEncryption(data string, key []byte) (string, string, error) {
-	paddedKeyBytes := Pad(key, aesKeyLength)
+	paddedKeyBytes := Pad(key, AesKeyLength)
 	// Create a new cipher block
 	block, err := aes.NewCipher(paddedKeyBytes)
 	if err != nil {
@@ -44,7 +44,7 @@ func PerformSymmetricEncryption(data string, key []byte) (string, string, error)
 
 func PerformSymmetricDecryption(cipherText string, plainTextLen int, iv string, key []byte) (string, error) {
 	// Convert the key to a byte array
-	paddedKeyBytes := Pad(key, aesKeyLength)
+	paddedKeyBytes := Pad(key, AesKeyLength)
 	// Create a new cipher block
 	block, err := aes.NewCipher(paddedKeyBytes)
 	if err != nil {

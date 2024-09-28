@@ -155,10 +155,6 @@ func (a *auth) signUpUserWithKeys(email string, password string, keys []encrypti
 		return nil, err
 	}
 
-	for i, _ := range keys {
-		keys[i].OwnerType = encryption.USER_ENTITY_TYPE
-	}
-
 	user := models.User{
 		Email:             email,
 		PasswordHash:      hashedPassword,
@@ -216,7 +212,6 @@ func (a *auth) GenerateAuthToken(user *models.User, password string) (*jose.JSON
 	userSymmetricKey := a.cryptoService.DeriveUserSymmetricKey(password, user.EncryptionKeySalt)
 	jwt := a.createJWT(user, userSymmetricKey)
 	x := jwt.Claims.(jwtClaims).SymmetricKey
-	print(x)
 	return a.cryptoService.CreateJwe(jwt)
 }
 
@@ -240,17 +235,20 @@ func (a *auth) createJWT(user *models.User, userSymmetricKey string) *jwtLib.Tok
 
 func (a *auth) SignUpFirstUser(email string, password string) (*models.User, error) {
 	keySalt := a.cryptoService.GenerateSalt()
-	ownerKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.GRANT_OWNER, password, keySalt)
+	userSymmetricKeyString := a.cryptoService.GenerateUserSymmetricKey()
+	ownerKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.GRANT_OWNER, userSymmetricKeyString)
 	if err != nil {
 		return nil, err
 	}
 
-	clientKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.GRANT_CLIENT, password, keySalt)
+	clientKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.GRANT_CLIENT, userSymmetricKeyString)
 	if err != nil {
 		return nil, err
 	}
 
-	keys := []encryption.Key{*ownerKey, *clientKey}
+	symmetricKey := encryption.NewSymmetricKey(userSymmetricKeyString)
+
+	keys := []encryption.Key{*ownerKey, *clientKey, symmetricKey}
 
 	return a.signUpUserWithKeys(email, password, keys, keySalt)
 }

@@ -2,6 +2,7 @@ package models
 
 import (
 	"gorm.io/gorm"
+	"shareLog/lib"
 	"shareLog/models/encryption"
 )
 
@@ -15,4 +16,10 @@ type User struct {
 	*/
 	EncryptionKeySalt string
 	EncryptionKeys    []encryption.Key `gorm:"foreignKey:OwnerId"`
+}
+
+func (u *User) GetSymmetricKey() encryption.Key {
+	return *lib.Find(u.EncryptionKeys, func(key encryption.Key) bool {
+		return key.SymmetricKey != nil
+	})
 }

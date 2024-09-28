@@ -8,10 +8,7 @@ import (
 
 func main() {
 	providers.InitDi()
-
 	engine := gin.Default()
-
 	controllers.LoadAllController(engine)
-
 	engine.Run()
 }

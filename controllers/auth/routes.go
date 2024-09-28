@@ -64,6 +64,8 @@ func (a *authController) inviteUser(c *gin.Context) {
 		return
 	}
 
+	// TODO: Only create the appropriate keys for the level
+
 	pks := make([]eciesgo.PrivateKey, 0)
 	for _, key := range user.EncryptionKeys {
 		pk, pkError := key.PrivateKey.Key([]byte(a.GetUserSymmetricKey(c)))
