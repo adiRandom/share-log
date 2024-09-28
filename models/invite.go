@@ -26,11 +26,11 @@ func NewInvite(keys []encryption.Key, code, deriveSalt, hashSalt string, grant u
 	}
 
 	return &Invite{
-
-		Keys:     keys,
-		HashSalt: hashSalt,
-		CodeHash: hashedCode,
-		Grant:    grant,
+		Keys:       keys,
+		HashSalt:   hashSalt,
+		CodeHash:   hashedCode,
+		DeriveSalt: deriveSalt,
+		Grant:      grant,
 	}, nil
 }
 

@@ -54,7 +54,13 @@ func (b *baseController) GetUserSymmetricKey(c *gin.Context) string {
 		return ""
 	}
 
-	return b.authService.GetUserSymmetricKey(*jwt.(*jwtLib.Token))
+	key, err := b.authService.GetUserSymmetricKey(*jwt.(*jwtLib.Token))
+	if err != nil {
+		c.Status(401)
+		return ""
+	}
+
+	return key
 }
 
 func (b *baseController) WithAuth(g *gin.RouterGroup) {

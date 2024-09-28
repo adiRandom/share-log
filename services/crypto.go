@@ -150,10 +150,6 @@ func (c *crypto) CreateJwe(token *jwtLib.Token) (*jose.JSONWebEncryption, error)
 		return nil, err
 	}
 
-	parsed, err := jwtLib.ParseWithClaims(signedToken, jwtClaims{}, func(t *jwtLib.Token) (interface{}, error) { return c.keyRepository.GetJWTPubKey() })
-	parsedClaims := parsed.Claims.(jwtClaims).SymmetricKey
-	print(parsedClaims)
-
 	jwe, err := encrypter.Encrypt([]byte(signedToken))
 	if err != nil {
 		return nil, err
@@ -182,6 +178,5 @@ func (c *crypto) DecodeJwe(serializedJwe string) (string, error) {
 }
 
 func (c *crypto) DeriveUserSymmetricKey(password string, salt string) string {
-	strongPassphrase := c.DeriveSecurePassphrase(password, salt)
-	return lib.EnsureBase64(string(strongPassphrase))
+	return string(c.DeriveSecurePassphrase(password, salt))
 }

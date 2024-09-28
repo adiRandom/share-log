@@ -1,13 +1,13 @@
 package auth
 
 import (
-	eciesgo "github.com/ecies/go/v2"
 	"github.com/gin-gonic/gin"
 	"shareLog/controllers/base"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/models"
 	"shareLog/models/dto"
+	"shareLog/models/userGrant"
 	"shareLog/services"
 )
 
@@ -64,19 +64,9 @@ func (a *authController) inviteUser(c *gin.Context) {
 		return
 	}
 
-	pks := make([]eciesgo.PrivateKey, 0)
-	for _, key := range user.EncryptionKeys {
-		pk, pkError := key.PrivateKey.Key([]byte(a.GetUserSymmetricKey(c)))
-		if pkError != nil {
-			c.JSON(403, models.GetResponse(
-				dto.Error{Code: 403, Message: "Wrong credentials"}))
-			return
-		}
+	userGrantType := userGrant.GetByName(createInviteDto.Grant)
 
-		pks = append(pks, *pk)
-	}
-
-	invite, _ := a.authService.CreateUserInvite(createInviteDto.Grant, pks)
+	invite, _ := a.authService.CreateUserInvite(*userGrantType, user, a.GetUserSymmetricKey(c))
 	c.JSON(200, models.GetResponse(invite.ToDto()))
 }
 
