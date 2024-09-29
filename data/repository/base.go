@@ -14,6 +14,9 @@ type BaseRepository[T any] interface {
 	Save(model *T) error
 	GetById(id uint) *T
 	Count() (int64, error)
+	Delete(entity *T) error
+	DeletePermanently(entity *T) error
+	BatchDeletePermanently(entities []T) error
 }
 
 func newBaseRepository[T any](db *gorm.DB) baseRepository[T] {
@@ -56,4 +59,19 @@ func (r *baseRepository[T]) Count() (int64, error) {
 	}
 
 	return result, nil
+}
+
+func (r *baseRepository[T]) Delete(entity *T) error {
+	db := r.getDb()
+	return db.Delete(&entity).Error
+}
+
+func (r *baseRepository[T]) DeletePermanently(entity *T) error {
+	db := r.getDb()
+	return db.Unscoped().Delete(&entity).Error
+}
+
+func (r *baseRepository[T]) BatchDeletePermanently(entities []T) error {
+	db := r.getDb()
+	return db.Unscoped().Delete(entities).Error
 }

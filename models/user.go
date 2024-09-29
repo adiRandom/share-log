@@ -14,5 +14,5 @@ type User struct {
 	Used to derive a the user symmetric key to encrypt/decrypt keys
 	*/
 	EncryptionKeySalt string
-	EncryptionKeys    []encryption.Key `gorm:"foreignKey:OwnerId"`
+	EncryptionKeys    []encryption.Key `gorm:"foreignKey:UserOwnerId"`
 }

@@ -10,7 +10,7 @@ import (
 
 type Invite struct {
 	gorm.Model
-	Keys     []encryption.Key `gorm:"foreignKey:OwnerId"`
+	Keys     []encryption.Key `gorm:"foreignKey:InviteOwnerId;constraint:OnDelete:CASCADE"`
 	CodeHash string
 	// The salt used for hashing the code and storing it in the database
 	HashSalt string

@@ -5,7 +5,6 @@ import (
 	"shareLog/lib"
 )
 
-// TODO: Seems to unpad a lot
 const keySize = 64 // bytes
 
 type PrivateKey struct {

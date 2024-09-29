@@ -102,8 +102,6 @@ func (a *authController) signUp(c *gin.Context) {
 		Token: serializedToken,
 	}
 
-	// TODO: delete the invite
-
 	c.JSON(200, models.GetResponse(response))
 }
 

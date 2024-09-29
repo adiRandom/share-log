@@ -113,7 +113,6 @@ func (a *auth) extractInvite(inviteId uint, code string) (*models.Invite, error)
 func (a *auth) createKeysForNewUser(invite *models.Invite, code string, password string, keySalt string) ([]encryption.Key, error) {
 	tempKeyPassphrase := a.cryptoService.DeriveSecurePassphrase(code, invite.DeriveSalt)
 
-	// TODO: Delete temp key after invite
 	sourceKeys := invite.Keys
 	if len(sourceKeys) == 0 {
 		return nil, lib.Error{Msg: "Invalid invite"}
@@ -137,6 +136,20 @@ func (a *auth) createKeysForNewUser(invite *models.Invite, code string, password
 	return finalKeys, nil
 }
 
+func (a *auth) clearInviteData(invite *models.Invite) error {
+	err := a.inviteRepository.Delete(invite)
+	if err != nil {
+		return err
+	}
+
+	err = a.keyRepository.BatchDeletePermanently(invite.Keys)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (a *auth) SignUpWithEmail(email string, password string, code string, inviteId uint) (*models.User, error) {
 	invite, err := a.extractInvite(inviteId, code)
 	if err != nil {
@@ -145,6 +158,14 @@ func (a *auth) SignUpWithEmail(email string, password string, code string, invit
 	keySalt := a.cryptoService.GenerateSalt()
 
 	keys, err := a.createKeysForNewUser(invite, code, password, keySalt)
+	if err != nil {
+		return nil, err
+	}
+
+	clearErr := a.clearInviteData(invite)
+	if clearErr != nil {
+		return nil, err
+	}
 
 	return a.signUpUserWithKeys(email, password, keys, keySalt)
 }
@@ -154,10 +175,6 @@ func (a *auth) signUpUserWithKeys(email string, password string, keys []encrypti
 	hashedPassword, err := lib.HashPassword(password, passwordSalt)
 	if err != nil {
 		return nil, err
-	}
-
-	for i, _ := range keys {
-		keys[i].OwnerType = encryption.USER_ENTITY_TYPE
 	}
 
 	user := models.User{
@@ -238,7 +255,6 @@ func (a *auth) getKeysForInvite(
 		if err != nil {
 			return nil, err
 		}
-		encryptedKey.OwnerType = encryption.INVITE_ENTITY_TYPE
 
 		pks = append(pks, *encryptedKey)
 	}
