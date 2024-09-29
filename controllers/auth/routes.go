@@ -71,6 +71,8 @@ func (a *authController) inviteUser(c *gin.Context) {
 }
 
 func (a *authController) signUp(c *gin.Context) {
+	// TODO: enforce password rules
+	// TODO: Check for existing user
 	signupDto := dto.Signup{}
 	err := c.BindJSON(&signupDto)
 	if err != nil {
@@ -99,6 +101,8 @@ func (a *authController) signUp(c *gin.Context) {
 	response := dto.SignInResponse{
 		Token: serializedToken,
 	}
+
+	// TODO: delete the invite
 
 	c.JSON(200, models.GetResponse(response))
 }

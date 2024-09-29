@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	eciesgo "github.com/ecies/go/v2"
 	"github.com/go-jose/go-jose/v4"
 	jwtLib "github.com/golang-jwt/jwt/v5"
 	"shareLog/data/repository"
@@ -95,7 +94,10 @@ func (a *auth) ParseAndValidateJWT(signedJwt string) (*jwtLib.Token, error) {
 }
 
 func (a *auth) extractInvite(inviteId uint, code string) (*models.Invite, error) {
-	invite := a.inviteRepository.GetById(inviteId)
+	invite, err := a.inviteRepository.GetByIdWithKeys(inviteId)
+	if err != nil {
+		return nil, err
+	}
 	if invite == nil {
 		return nil, lib.Error{Msg: "Invalid invite id"}
 	}
@@ -108,26 +110,31 @@ func (a *auth) extractInvite(inviteId uint, code string) (*models.Invite, error)
 	return invite, nil
 }
 
-func (a *auth) extractSourcePrivateKeysFromInvite(invite *models.Invite, code string) ([]eciesgo.PrivateKey, error) {
+func (a *auth) createKeysForNewUser(invite *models.Invite, code string, password string, keySalt string) ([]encryption.Key, error) {
 	tempKeyPassphrase := a.cryptoService.DeriveSecurePassphrase(code, invite.DeriveSalt)
 
 	// TODO: Delete temp key after invite
-	sourceKey := invite.Keys
-	if len(sourceKey) == 0 {
+	sourceKeys := invite.Keys
+	if len(sourceKeys) == 0 {
 		return nil, lib.Error{Msg: "Invalid invite"}
 	}
 
-	sourcePks := make([]eciesgo.PrivateKey, 0)
-	for _, sourceKey := range sourceKey {
-		sourcePk, err := sourceKey.PrivateKey.Key(tempKeyPassphrase)
+	finalKeys := make([]encryption.Key, 0)
+	for _, key := range sourceKeys {
+		sourcePk, err := key.PrivateKey.Key(tempKeyPassphrase)
 		if err != nil {
 			return nil, lib.Error{Msg: "Invalid invite"}
 		}
 
-		sourcePks = append(sourcePks, *sourcePk)
+		encryptedKey, err := a.cryptoService.CreateEncryptionKey(sourcePk, key.UserGrant, password, keySalt)
+		if err != nil {
+			return nil, err
+		}
+
+		finalKeys = append(finalKeys, *encryptedKey)
 	}
 
-	return sourcePks, nil
+	return finalKeys, nil
 }
 
 func (a *auth) SignUpWithEmail(email string, password string, code string, inviteId uint) (*models.User, error) {
@@ -135,17 +142,9 @@ func (a *auth) SignUpWithEmail(email string, password string, code string, invit
 	if err != nil {
 		return nil, err
 	}
-	sourcePks, err := a.extractSourcePrivateKeysFromInvite(invite, code)
-
-	keys := make([]encryption.Key, 0)
 	keySalt := a.cryptoService.GenerateSalt()
-	for _, key := range sourcePks {
-		encryptedKey, err := a.cryptoService.CreateEncryptionKey(&key, invite.Grant, password, keySalt)
-		if err != nil {
-			return nil, err
-		}
-		keys = append(keys, *encryptedKey)
-	}
+
+	keys, err := a.createKeysForNewUser(invite, code, password, keySalt)
 
 	return a.signUpUserWithKeys(email, password, keys, keySalt)
 }
@@ -191,6 +190,7 @@ func (a *auth) SignInWithEmail(email string, password string) (*models.User, err
 
 func (a *auth) CreateUserInvite(grantType userGrant.Type, refUser *models.User, refUserSymmetricKey string) (*models.Invite, error) {
 	code := a.cryptoService.GenerateSalt()
+	print(code)
 	deriveSalt := a.cryptoService.GenerateSalt()
 	hashSalt := a.cryptoService.GenerateSalt()
 
