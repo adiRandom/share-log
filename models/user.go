@@ -3,6 +3,7 @@ package models
 import (
 	"gorm.io/gorm"
 	"shareLog/models/encryption"
+	"shareLog/models/userGrant"
 )
 
 type User struct {
@@ -15,4 +16,5 @@ type User struct {
 	*/
 	EncryptionKeySalt string
 	EncryptionKeys    []encryption.Key `gorm:"foreignKey:UserOwnerId"`
+	Grant             userGrant.Type
 }

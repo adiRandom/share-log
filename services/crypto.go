@@ -30,14 +30,12 @@ type crypto struct {
 	Data - The message to decrypt
 	Usr - The userGrant that has a key that can be used to decrypt this message
 	UsrSymmetricKey - The decryption key held by the userGrant is encrypted in the DB. This is the key to decrypt that master key
-	Level - The encryption Level we are decoding at this step
 */
 
 type DecryptOptions struct {
 	Data            string
 	Usr             *models.User
 	UsrSymmetricKey string
-	Level           userGrant.Type
 }
 
 type Crypto interface {
@@ -45,6 +43,7 @@ type Crypto interface {
 		Encrypt the message with the shared public key at the owner level
 	*/
 	EncryptOwnerLevel(data string) (string, error)
+	EncryptClientLevel(data string) (string, error)
 	/*
 		Decrypt a message using the passed options
 	*/
@@ -71,18 +70,47 @@ func (c CryptoProvider) Provide() any {
 }
 
 func (c *crypto) EncryptOwnerLevel(data string) (string, error) {
-	publicKey := c.keyRepository.GetPublicKey(userGrant.GRANT_OWNER)
+	publicKey := c.keyRepository.GetPublicKey(userGrant.Types.GrantOwner)
 	if publicKey == nil {
 		return "", lib.Error{Msg: "No owner public key found"}
 	}
 
-	encryptedBytes, err := eciesgo.Encrypt(publicKey.PublicKey.Key, []byte(data))
+	encryptedBytes, err := eciesgo.Encrypt(publicKey.Key, []byte(data))
+	return string(encryptedBytes), err
+}
+
+func (c *crypto) EncryptClientLevel(data string) (string, error) {
+	publicKey := c.keyRepository.GetPublicKey(userGrant.Types.GrantClient)
+	if publicKey == nil {
+		return "", lib.Error{Msg: "No owner public key found"}
+	}
+
+	encryptedBytes, err := eciesgo.Encrypt(publicKey.Key, []byte(data))
 	return string(encryptedBytes), err
 }
 
 func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
+	levels := []userGrant.Type{userGrant.Types.GrantOwner, userGrant.Types.GrantClient}
+	msg := opt.Data
+	for _, level := range levels {
+		decryptedMsg, err := c.decryptMessageForLevel(&DecryptOptions{
+			Data:            msg,
+			Usr:             opt.Usr,
+			UsrSymmetricKey: opt.UsrSymmetricKey,
+		}, level)
+		if err != nil {
+			return "", err
+		}
+
+		msg = decryptedMsg
+	}
+
+	return msg, nil
+}
+
+func (c *crypto) decryptMessageForLevel(opt *DecryptOptions, level userGrant.Type) (string, error) {
 	key := lib.Find(opt.Usr.EncryptionKeys, func(key encryption.Key) bool {
-		return key.UserGrant == opt.Level
+		return key.UserGrant == level
 	})
 	privateKey, err := key.PrivateKey.Key([]byte(opt.UsrSymmetricKey))
 	if err != nil {

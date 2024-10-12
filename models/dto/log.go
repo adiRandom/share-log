@@ -1,5 +1,9 @@
 package dto
 
 type Log struct {
-	EncryptedStackTrace string `json:"encryptedStackTrace"`
+	ClientEncryptedStackTrace string `json:"stackTrace"`
+}
+
+type DecryptedLog struct {
+	StackTrace string `json:"stackTrace"`
 }

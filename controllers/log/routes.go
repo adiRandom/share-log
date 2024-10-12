@@ -7,6 +7,7 @@ import (
 	"shareLog/models"
 	"shareLog/models/dto"
 	"shareLog/services"
+	"strconv"
 )
 
 type logController struct {
@@ -34,8 +35,15 @@ func (l LogControllerProvider) Provide() any {
 
 func (l *logController) LoadController(engine *gin.Engine) {
 	group := engine.Group("/log")
-	//l.WithAuth(group)
-	group.POST("/", l.createLog)
+
+	l.WithAuth(group)
+	{
+		group.POST("/", l.createLog)
+		group.GET("/:id", l.getLog)
+
+		// TODO: Delete
+		group.POST("/test/", l.createLogFromPlain)
+	}
 }
 
 func (l *logController) createLog(c *gin.Context) {
@@ -56,5 +64,59 @@ func (l *logController) createLog(c *gin.Context) {
 		return
 	}
 
-	c.Status(200)
+	c.Status(201)
+}
+
+func (l *logController) getLog(c *gin.Context) {
+	logId := c.Param("id")
+	logIdInt64, err := strconv.ParseInt(logId, 10, 64)
+	if err != nil {
+		c.JSON(400, models.GetResponse(dto.Error{
+			Code:    400,
+			Message: "Malformed URL",
+		}))
+		return
+	}
+	logIdUint := uint(logIdInt64)
+
+	user := l.GetUser(c)
+	if user == nil {
+		c.Status(401)
+		return
+	}
+
+	hasAccess, err := l.logService.HaveAccessToLog(logIdUint, user)
+	if !hasAccess {
+		c.Status(403)
+		return
+	}
+
+	userSymmetricKey := l.GetUserSymmetricKey(c)
+	decryptedLog, err := l.logService.GetDecryptedLog(logIdUint, user, userSymmetricKey)
+	if err != nil {
+		c.JSON(500, models.GetResponse(dto.Error{
+			Code:    500,
+			Message: err.Error(),
+		}))
+		return
+	}
+
+	c.JSON(200, models.GetResponse(dto.DecryptedLog{
+		StackTrace: decryptedLog.StackTrace,
+	}))
+}
+
+func (l *logController) createLogFromPlain(c *gin.Context) {
+	var logDto dto.Log
+	err := c.BindJSON(&logDto)
+	if err != nil {
+		c.JSON(400, models.GetResponse(dto.Error{
+			Code:    400,
+			Message: err.Error()}))
+		return
+	}
+
+	l.logService.SavePlainLog(logDto)
+
+	c.Status(201)
 }

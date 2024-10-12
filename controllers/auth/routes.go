@@ -64,7 +64,7 @@ func (a *authController) inviteUser(c *gin.Context) {
 		return
 	}
 
-	userGrantType := userGrant.GetByName(createInviteDto.Grant)
+	userGrantType := userGrant.Types.GetByName(createInviteDto.Grant)
 
 	invite, _ := a.authService.CreateUserInvite(*userGrantType, user, a.GetUserSymmetricKey(c))
 	c.JSON(200, models.GetResponse(invite.ToDto()))

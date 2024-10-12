@@ -19,7 +19,7 @@ type keyRepository struct {
 
 type KeyRepository interface {
 	BaseRepository[encryption.Key]
-	GetPublicKey(t userGrant.Type) *encryption.Key
+	GetPublicKey(t userGrant.Type) *encryption.PublicKey
 	GetJwePublicKey() (*rsa.PublicKey, error)
 	GetJWTPubKey() (*ecdsa.PublicKey, error)
 	GetJWTPrivateKey() (*ecdsa.PrivateKey, error)
@@ -36,14 +36,14 @@ func (k KeyRepositoryProvider) Provide() any {
 	}
 }
 
-func (k *keyRepository) GetPublicKey(t userGrant.Type) *encryption.Key {
+func (k *keyRepository) GetPublicKey(t userGrant.Type) *encryption.PublicKey {
 	var key encryption.Key
 	err := k.getDb().Where(&encryption.Key{UserGrant: t}).First(&key).Error
 	if err != nil {
 		println(err)
 		return nil
 	}
-	return &key
+	return key.PublicKey
 }
 
 func (k *keyRepository) GetJWTPubKey() (*ecdsa.PublicKey, error) {

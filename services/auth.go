@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-const oneDay = 1000 * 60 * 60 * 24
-
 type auth struct {
 	userRepository   repository.UserRepository
 	keyRepository    repository.KeyRepository
@@ -167,10 +165,10 @@ func (a *auth) SignUpWithEmail(email string, password string, code string, invit
 		return nil, err
 	}
 
-	return a.signUpUserWithKeys(email, password, keys, keySalt)
+	return a.signUpUserWithKeys(email, password, keys, keySalt, invite.Grant)
 }
 
-func (a *auth) signUpUserWithKeys(email string, password string, keys []encryption.Key, keySalt string) (*models.User, error) {
+func (a *auth) signUpUserWithKeys(email string, password string, keys []encryption.Key, keySalt string, grant userGrant.Type) (*models.User, error) {
 	passwordSalt := a.cryptoService.GenerateSalt()
 	hashedPassword, err := lib.HashPassword(password, passwordSalt)
 	if err != nil {
@@ -183,6 +181,7 @@ func (a *auth) signUpUserWithKeys(email string, password string, keys []encrypti
 		PasswordSalt:      passwordSalt,
 		EncryptionKeySalt: keySalt,
 		EncryptionKeys:    keys,
+		Grant:             grant,
 	}
 	err = a.userRepository.Save(&user)
 	if err != nil {
@@ -288,19 +287,19 @@ func (a *auth) createJWT(user *models.User, userSymmetricKey string) *jwtLib.Tok
 
 func (a *auth) SignUpFirstUser(email string, password string) (*models.User, error) {
 	keySalt := a.cryptoService.GenerateSalt()
-	ownerKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.GRANT_OWNER, password, keySalt)
+	ownerKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.Types.GrantOwner, password, keySalt)
 	if err != nil {
 		return nil, err
 	}
 
-	clientKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.GRANT_CLIENT, password, keySalt)
+	clientKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.Types.GrantClient, password, keySalt)
 	if err != nil {
 		return nil, err
 	}
 
 	keys := []encryption.Key{*ownerKey, *clientKey}
 
-	return a.signUpUserWithKeys(email, password, keys, keySalt)
+	return a.signUpUserWithKeys(email, password, keys, keySalt, userGrant.Types.GrantOwner)
 }
 
 func (a *auth) encodeUserSymmetricKeyForJWT(userSymmetricKey []byte) string {

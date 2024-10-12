@@ -3,7 +3,6 @@ package userGrant
 import (
 	"database/sql/driver"
 	"errors"
-	"shareLog/lib"
 )
 
 type Type struct {
@@ -12,14 +11,21 @@ type Type struct {
 	AuthorityLevel int
 }
 
-var GRANT_CLIENT = Type{
-	"client",
-	0,
+const ownerType = "owner"
+const clientType = "client"
+
+type TypeMap struct {
+	GrantClient Type
+	GrantOwner  Type
 }
 
-var GRANT_OWNER = Type{"owner", 100}
-
-var types = []Type{GRANT_CLIENT, GRANT_OWNER}
+var Types = TypeMap{
+	GrantOwner: Type{ownerType, 100},
+	GrantClient: Type{
+		clientType,
+		0,
+	},
+}
 
 func (t *Type) Scan(src any) error {
 	typeName, ok := src.(string)
@@ -27,7 +33,7 @@ func (t *Type) Scan(src any) error {
 		return errors.New("Grant type must be string")
 	}
 
-	*t = *GetByName(typeName)
+	*t = *Types.GetByName(typeName)
 	return nil
 }
 
@@ -39,8 +45,13 @@ func (t Type) GormDataType() string {
 	return "text"
 }
 
-func GetByName(name string) *Type {
-	return lib.Find(types, func(grantType Type) bool {
-		return grantType.Name == name
-	})
+func (t TypeMap) GetByName(name string) *Type {
+	switch name {
+	case ownerType:
+		return &Types.GrantOwner
+	case clientType:
+		return &Types.GrantClient
+	}
+
+	return nil
 }

@@ -25,8 +25,8 @@ type DecryptedLog struct {
 	StackTrace string
 }
 
-func NewDecryptedLog(stackTrace string) DecryptedLog {
-	return DecryptedLog{
+func NewDecryptedLog(stackTrace string) *DecryptedLog {
+	return &DecryptedLog{
 		StackTrace: stackTrace,
 	}
 }
