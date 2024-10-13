@@ -7,7 +7,7 @@ import (
 	"encoding/pem"
 	"gorm.io/gorm"
 	"os"
-	"shareLog/constants"
+	"shareLog/config"
 	"shareLog/di"
 	"shareLog/models/encryption"
 	"shareLog/models/userGrant"
@@ -49,7 +49,7 @@ func (k *keyRepository) GetPublicKey(t userGrant.Type) *encryption.PublicKey {
 }
 
 func (k *keyRepository) GetJWTPubKey() (*ecdsa.PublicKey, error) {
-	key, err := k.getPemPublicKey(constants.JwtPubKeyPath)
+	key, err := k.getPemPublicKey(config.GetKeyPaths().JwtPubKeyPath)
 
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (k *keyRepository) GetJWTPubKey() (*ecdsa.PublicKey, error) {
 }
 
 func (k *keyRepository) GetJWTPrivateKey() (*ecdsa.PrivateKey, error) {
-	key, err := k.getPemPrivateKey(constants.JwtPkPath)
+	key, err := k.getPemPrivateKey(config.GetKeyPaths().JwtPkPath)
 
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (k *keyRepository) GetJWTPrivateKey() (*ecdsa.PrivateKey, error) {
 	return castedKey, nil
 }
 func (k *keyRepository) GetJWEPrivateKey() (*rsa.PrivateKey, error) {
-	key, err := k.getPemPrivateKey(constants.JwePkPath)
+	key, err := k.getPemPrivateKey(config.GetKeyPaths().JwePkPath)
 
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (k *keyRepository) GetJWEPrivateKey() (*rsa.PrivateKey, error) {
 }
 
 func (k *keyRepository) GetJwePublicKey() (*rsa.PublicKey, error) {
-	key, err := k.getPemPublicKey(constants.JwePubKeyPath)
+	key, err := k.getPemPublicKey(config.GetKeyPaths().JwePubKeyPath)
 	if err != nil {
 		return nil, err
 	}

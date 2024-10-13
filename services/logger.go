@@ -80,6 +80,8 @@ func (l *logger) HaveAccessToLog(id uint, user *models.User) (bool, error) {
 	}
 
 	return user.Grant == userGrant.Types.GrantOwner, nil
+
+	// TODO: Implement for client
 }
 
 func (l *logger) GetDecryptedLog(id uint, user *models.User, userSymmetricKey string) (*models.DecryptedLog, error) {

@@ -1,7 +1,7 @@
 package services
 
 import (
-	"shareLog/constants"
+	"shareLog/config"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/lib"
@@ -50,7 +50,7 @@ func (p *permissionRequest) RequestPermission(logId uint) error {
 
 func (p *permissionRequest) ApprovePermission(request models.PermissionRequest) error {
 	salt := p.cryptoService.GenerateSalt()
-	key, err := p.cryptoService.CreateNewEncryptionKey(userGrant.Types.GrantShared, constants.PermissionRequestSecret, salt)
+	key, err := p.cryptoService.CreateNewEncryptionKey(userGrant.Types.GrantShared, config.GetSecrets().LogSharingSecret, salt)
 	if err != nil {
 		return err
 	}

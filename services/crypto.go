@@ -110,6 +110,8 @@ func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
 }
 
 func (c *crypto) decryptMessageForLevel(opt *DecryptOptions, level userGrant.Type) (string, error) {
+	// TODO: Get correct key for user level
+
 	key := lib.Find(opt.Usr.EncryptionKeys, func(key encryption.Key) bool {
 		return key.UserGrant == level
 	})

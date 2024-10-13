@@ -3,7 +3,7 @@ package services
 import (
 	"fmt"
 	jwtLib "github.com/golang-jwt/jwt/v5"
-	"shareLog/constants"
+	"shareLog/config"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/lib"
@@ -60,7 +60,7 @@ func (k *keyManager) AcquireSharedKey(
 	userSymmetricKey string,
 	saveToDb bool,
 ) (*encryption.Key, error) {
-	sharedKeySymmetricKey := k.cryptoService.DeriveSecurePassphrase(constants.PermissionRequestSecret, keyToAcquire.Salt)
+	sharedKeySymmetricKey := k.cryptoService.DeriveSecurePassphrase(config.GetSecrets().LogSharingSecret, keyToAcquire.Salt)
 	pk, err := keyToAcquire.PrivateKey.Key(sharedKeySymmetricKey)
 	if err != nil {
 		return nil, err
