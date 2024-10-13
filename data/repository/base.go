@@ -12,6 +12,7 @@ type baseRepository[T any] struct {
 type BaseRepository[T any] interface {
 	getDb() *gorm.DB
 	Save(model *T) error
+	SaveAll(model []T) error
 	GetById(id uint) *T
 	Count() (int64, error)
 	Delete(entity *T) error
@@ -24,11 +25,23 @@ func newBaseRepository[T any](db *gorm.DB) baseRepository[T] {
 }
 
 /*
-Create saves an entity to the database
+Save saves an entity to the database
 The id of the entity is set by the database on the object passed in
 */
+
 func (r *baseRepository[T]) Save(model *T) error {
-	return r.db.Create(model).Error
+	return r.db.Save(model).Error
+}
+
+func (r *baseRepository[T]) SaveAll(models []T) error {
+	for _, model := range models {
+		err := r.Save(&model)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *baseRepository[T]) getDb() *gorm.DB {

@@ -13,14 +13,17 @@ type Type struct {
 
 const ownerType = "owner"
 const clientType = "client"
+const sharedType = "shared"
 
 type TypeMap struct {
 	GrantClient Type
+	GrantShared Type
 	GrantOwner  Type
 }
 
 var Types = TypeMap{
-	GrantOwner: Type{ownerType, 100},
+	GrantOwner:  Type{ownerType, 100},
+	GrantShared: Type{sharedType, 10},
 	GrantClient: Type{
 		clientType,
 		0,

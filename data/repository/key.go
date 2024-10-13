@@ -24,6 +24,7 @@ type KeyRepository interface {
 	GetJWTPubKey() (*ecdsa.PublicKey, error)
 	GetJWTPrivateKey() (*ecdsa.PrivateKey, error)
 	GetJWEPrivateKey() (*rsa.PrivateKey, error)
+	GetUnacquiredSharedKeys(userId uint) ([]encryption.Key, error)
 }
 
 type KeyRepositoryProvider struct {
@@ -122,4 +123,18 @@ func (k *keyRepository) getPemPrivateKey(path string) (any, error) {
 	}
 
 	return key, nil
+}
+
+func (k *keyRepository) GetUnacquiredSharedKeys(userId uint) ([]encryption.Key, error) {
+	var keys []encryption.Key
+
+	subquery := k.db.Model(&encryption.Key{}).
+		Select("log_id").
+		Where("user_owner_id = ?", userId)
+
+	err := k.db.Where("user_owner_id IS NULL").
+		Not("log_id IN (?)", subquery).
+		Find(&keys).Error
+
+	return keys, err
 }

@@ -18,7 +18,7 @@ const derivePasswordKeyLen = 32
 */
 func PerformSymmetricEncryption(data string, key []byte) (string, string, error) {
 	paddedKeyBytes := Pad(key, aesKeyLength)
-	// Create a new cipher block
+	// Save a new cipher block
 	block, err := aes.NewCipher(paddedKeyBytes)
 	if err != nil {
 		return "", "", err
@@ -32,9 +32,9 @@ func PerformSymmetricEncryption(data string, key []byte) (string, string, error)
 
 	// Pad the data to the block size
 	paddedData := Pad([]byte(data), block.BlockSize())
-	// Create a new cipher
+	// Save a new cipher
 	cipherText := make([]byte, len(paddedData))
-	// Create a new CBC encrypter
+	// Save a new CBC encrypter
 	encrypter := cipher.NewCBCEncrypter(block, iv)
 	// Encrypt the data
 	encrypter.CryptBlocks(cipherText, paddedData)
@@ -45,7 +45,7 @@ func PerformSymmetricEncryption(data string, key []byte) (string, string, error)
 func PerformSymmetricDecryption(cipherText string, plainTextLen int, iv string, key []byte) (string, error) {
 	// Convert the key to a byte array
 	paddedKeyBytes := Pad(key, aesKeyLength)
-	// Create a new cipher block
+	// Save a new cipher block
 	block, err := aes.NewCipher(paddedKeyBytes)
 	if err != nil {
 		return "", err

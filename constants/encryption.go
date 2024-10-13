@@ -7,3 +7,5 @@ const JwePubKeyPath = "/Users/adi_random/GolandProjects/shareLog/keys/sharelog_j
 const JwePkPath = "/Users/adi_random/GolandProjects/shareLog/keys/sharelog_jwe.pem"
 const JwtPubKeyPath = "/Users/adi_random/GolandProjects/shareLog/keys/sharelog_jwt_pub.pem"
 const JwtPkPath = "/Users/adi_random/GolandProjects/shareLog/keys/sharelog_jwt.key"
+
+const PermissionRequestSecret = "abcde"

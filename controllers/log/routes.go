@@ -7,7 +7,6 @@ import (
 	"shareLog/models"
 	"shareLog/models/dto"
 	"shareLog/services"
-	"strconv"
 )
 
 type logController struct {
@@ -68,16 +67,10 @@ func (l *logController) createLog(c *gin.Context) {
 }
 
 func (l *logController) getLog(c *gin.Context) {
-	logId := c.Param("id")
-	logIdInt64, err := strconv.ParseInt(logId, 10, 64)
+	logId, err := l.GetUIntParam(c, "id")
 	if err != nil {
-		c.JSON(400, models.GetResponse(dto.Error{
-			Code:    400,
-			Message: "Malformed URL",
-		}))
 		return
 	}
-	logIdUint := uint(logIdInt64)
 
 	user := l.GetUser(c)
 	if user == nil {
@@ -85,14 +78,14 @@ func (l *logController) getLog(c *gin.Context) {
 		return
 	}
 
-	hasAccess, err := l.logService.HaveAccessToLog(logIdUint, user)
+	hasAccess, err := l.logService.HaveAccessToLog(logId, user)
 	if !hasAccess {
 		c.Status(403)
 		return
 	}
 
 	userSymmetricKey := l.GetUserSymmetricKey(c)
-	decryptedLog, err := l.logService.GetDecryptedLog(logIdUint, user, userSymmetricKey)
+	decryptedLog, err := l.logService.GetDecryptedLog(logId, user, userSymmetricKey)
 	if err != nil {
 		c.JSON(500, models.GetResponse(dto.Error{
 			Code:    500,

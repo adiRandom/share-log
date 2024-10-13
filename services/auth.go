@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"github.com/go-jose/go-jose/v4"
 	jwtLib "github.com/golang-jwt/jwt/v5"
+	"shareLog/constants"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/lib"
 	"shareLog/models"
 	"shareLog/models/encryption"
 	"shareLog/models/userGrant"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -108,8 +110,7 @@ func (a *auth) extractInvite(inviteId uint, code string) (*models.Invite, error)
 	return invite, nil
 }
 
-func (a *auth) createKeysForNewUser(invite *models.Invite, code string, password string, keySalt string) ([]encryption.Key, error) {
-	tempKeyPassphrase := a.cryptoService.DeriveSecurePassphrase(code, invite.DeriveSalt)
+func (a *auth) createKeysForNewUser(invite *models.Invite, code string, password string, symmetricKeySalt string) ([]encryption.Key, error) {
 
 	sourceKeys := invite.Keys
 	if len(sourceKeys) == 0 {
@@ -118,12 +119,14 @@ func (a *auth) createKeysForNewUser(invite *models.Invite, code string, password
 
 	finalKeys := make([]encryption.Key, 0)
 	for _, key := range sourceKeys {
+		tempKeyPassphrase := a.cryptoService.DeriveSecurePassphrase(code, key.Salt)
+
 		sourcePk, err := key.PrivateKey.Key(tempKeyPassphrase)
 		if err != nil {
 			return nil, lib.Error{Msg: "Invalid invite"}
 		}
 
-		encryptedKey, err := a.cryptoService.CreateEncryptionKey(sourcePk, key.UserGrant, password, keySalt)
+		encryptedKey, err := a.cryptoService.CreateEncryptionKey(sourcePk, key.UserGrant, password, symmetricKeySalt)
 		if err != nil {
 			return nil, err
 		}
@@ -188,6 +191,15 @@ func (a *auth) signUpUserWithKeys(email string, password string, keys []encrypti
 		return nil, err
 	}
 
+	if grant == userGrant.Types.GrantClient {
+		acquiredSharedKeys, err := a.acquireSharedKeys(&user, password, keySalt)
+		if err != nil {
+			return nil, err
+		}
+
+		user.EncryptionKeys = slices.Concat(user.EncryptionKeys, acquiredSharedKeys)
+	}
+
 	return &user, nil
 }
 
@@ -201,13 +213,20 @@ func (a *auth) SignInWithEmail(email string, password string) (*models.User, err
 		return nil, lib.Error{Msg: "Wrong email or password"}
 	}
 
+	if user.Grant == userGrant.Types.GrantClient {
+		acquiredSharedKeys, err := a.acquireSharedKeys(user, password, user.EncryptionKeySalt)
+		if err != nil {
+			return nil, err
+		}
+
+		user.EncryptionKeys = slices.Concat(user.EncryptionKeys, acquiredSharedKeys)
+	}
+
 	return user, err
 }
 
 func (a *auth) CreateUserInvite(grantType userGrant.Type, refUser *models.User, refUserSymmetricKey string) (*models.Invite, error) {
 	code := a.cryptoService.GenerateSalt()
-	print(code)
-	deriveSalt := a.cryptoService.GenerateSalt()
 	hashSalt := a.cryptoService.GenerateSalt()
 
 	keys, err := a.getKeysForInvite(
@@ -215,13 +234,12 @@ func (a *auth) CreateUserInvite(grantType userGrant.Type, refUser *models.User, 
 		refUserSymmetricKey,
 		grantType,
 		code,
-		deriveSalt,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	invite, err := models.NewInvite(keys, code, deriveSalt, hashSalt, grantType)
+	invite, err := models.NewInvite(keys, code, hashSalt, grantType)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +254,6 @@ func (a *auth) getKeysForInvite(
 	refUserSymmetricKey string,
 	grantType userGrant.Type,
 	inviteCode string,
-	inviteSalt string,
 ) ([]encryption.Key, error) {
 	pks := make([]encryption.Key, 0)
 	for _, key := range refUser.EncryptionKeys {
@@ -250,7 +267,8 @@ func (a *auth) getKeysForInvite(
 			return nil, pkError
 		}
 
-		encryptedKey, err := a.cryptoService.CreateEncryptionKey(pk, key.UserGrant, inviteCode, inviteSalt)
+		salt := a.cryptoService.GenerateSalt()
+		encryptedKey, err := a.cryptoService.CreateEncryptionKey(pk, key.UserGrant, inviteCode, salt)
 		if err != nil {
 			return nil, err
 		}
@@ -287,12 +305,12 @@ func (a *auth) createJWT(user *models.User, userSymmetricKey string) *jwtLib.Tok
 
 func (a *auth) SignUpFirstUser(email string, password string) (*models.User, error) {
 	keySalt := a.cryptoService.GenerateSalt()
-	ownerKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.Types.GrantOwner, password, keySalt)
+	ownerKey, err := a.cryptoService.CreateNewEncryptionKey(userGrant.Types.GrantOwner, password, keySalt)
 	if err != nil {
 		return nil, err
 	}
 
-	clientKey, err := a.cryptoService.CreateFirstEncryptionKey(userGrant.Types.GrantClient, password, keySalt)
+	clientKey, err := a.cryptoService.CreateNewEncryptionKey(userGrant.Types.GrantClient, password, keySalt)
 	if err != nil {
 		return nil, err
 	}
@@ -327,4 +345,36 @@ func (a *auth) decodeUserSymmetricKeyForJWT(userSymmetricKey string) (string, er
 	}
 
 	return string(bytes), nil
+}
+
+func (a *auth) acquireSharedKeys(user *models.User, password string, salt string) ([]encryption.Key, error) {
+	acquiredPks := make([]encryption.Key, 0)
+
+	keysToAcquire, err := a.keyRepository.GetUnacquiredSharedKeys(user.ID)
+	if err != nil {
+		return acquiredPks, err
+	}
+
+	for _, keyToAcquire := range keysToAcquire {
+		symmetricKey := a.cryptoService.DeriveSecurePassphrase(constants.PermissionRequestSecret, keyToAcquire.Salt)
+		pk, err := keyToAcquire.PrivateKey.Key(symmetricKey)
+		if err != nil {
+			return acquiredPks, err
+		}
+		acquiredKey, err := a.cryptoService.CreateEncryptionKey(pk, user.Grant, password, salt)
+		if err != nil {
+			return acquiredPks, err
+		}
+
+		acquiredKey.LogId = keyToAcquire.LogId
+		acquiredKey.UserOwnerId = &user.ID
+		acquiredPks = append(acquiredPks, *acquiredKey)
+	}
+
+	err = a.keyRepository.SaveAll(acquiredPks)
+	if err != nil {
+		return acquiredPks, err
+	}
+
+	return acquiredPks, nil
 }
