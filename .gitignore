@@ -5,4 +5,4 @@ test.db
 /jwe_key
 /jwe_key.pub
 keys/
-.env
+/.env
