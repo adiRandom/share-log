@@ -16,6 +16,8 @@ type controller struct {
 	base.BaseController
 	permissionRequestService services.PermissionRequest
 	logPermissionRepository  repository.LogPermissionRepository
+	keyManager               services.KeyManager
+	keyRepository            repository.KeyRepository
 }
 
 type Controller interface {
@@ -27,29 +29,31 @@ type ControllerProvider struct {
 }
 
 func (p ControllerProvider) Provide() any {
-	baseController := di.Get[base.BaseController]()
-	permissionRequestService := di.Get[services.PermissionRequest]()
-	logPermissionRepository := di.Get[repository.LogPermissionRepository]()
 	var instance Controller = &controller{
-		baseController,
-		permissionRequestService,
-		logPermissionRepository,
+		BaseController:           di.Get[base.BaseController](),
+		permissionRequestService: di.Get[services.PermissionRequest](),
+		logPermissionRepository:  di.Get[repository.LogPermissionRepository](),
+		keyManager:               di.Get[services.KeyManager](),
+		keyRepository:            di.Get[repository.KeyRepository](),
 	}
 	return instance
 }
 
 func (l *controller) LoadController(engine *gin.Engine) {
-	clientGroup := engine.Group("/log/:id/permission")
-	ownerGroup := engine.Group("/log/:id/permission/owner")
-
-	l.WithAuth(clientGroup)
+	rootGroup := engine.Group("/log")
+	l.WithAuth(rootGroup)
 	{
-		clientGroup.GET("/", l.getPermissionRequests)
+		rootGroup.GET("/list", l.getPermissionRequests)
+	}
+
+	clientGroup := rootGroup.Group("/:id/permission")
+	{
 		clientGroup.POST("/", l.requestPermission)
+		clientGroup.POST("/acquire", l.acquireSharedKey)
 		clientGroup.PATCH("/reset", l.resetPermissionRequest)
 	}
 
-	l.WithAuth(ownerGroup)
+	ownerGroup := rootGroup.Group("/:id/permission/owner")
 	l.WithMinGrant(ownerGroup, userGrant.Types.GrantOwner)
 	{
 		ownerGroup.PATCH("/", l.acceptPermissionRequest)
@@ -166,4 +170,28 @@ func (l *controller) getPermissionRequests(c *gin.Context) {
 	})
 
 	c.JSON(200, models.GetResponse(responseModel))
+}
+
+func (l *controller) acquireSharedKey(c *gin.Context) {
+	user := l.GetUser(c)
+	logId, err := l.GetUIntParam(c, "id")
+	if err != nil {
+		return
+	}
+
+	sharedKey, err := l.keyRepository.GetUnacquiredSharedKey(user.ID, logId)
+	if err != nil {
+		c.Status(404)
+		return
+	}
+
+	userSymmetricKey := l.GetUserSymmetricKey(c)
+	_, err = l.keyManager.AcquireSharedKey(user, sharedKey, userSymmetricKey, true)
+
+	if err != nil {
+		c.JSON(500, models.GetResponse(dto.Error{Code: 500, Message: err.Error()}))
+		return
+	}
+
+	c.Status(201)
 }

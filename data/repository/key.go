@@ -24,6 +24,7 @@ type KeyRepository interface {
 	GetJWTPubKey() (*ecdsa.PublicKey, error)
 	GetJWTPrivateKey() (*ecdsa.PrivateKey, error)
 	GetJWEPrivateKey() (*rsa.PrivateKey, error)
+	GetUnacquiredSharedKey(userId uint, logId uint) (*encryption.Key, error)
 	GetUnacquiredSharedKeys(userId uint) ([]encryption.Key, error)
 }
 
@@ -129,12 +130,49 @@ func (k *keyRepository) GetUnacquiredSharedKeys(userId uint) ([]encryption.Key, 
 	var keys []encryption.Key
 
 	subquery := k.db.Model(&encryption.Key{}).
-		Select("log_id").
+		// If we find a key already acquired for this log and user
+		// the not in the main query will return false (!"1" -> false)
+		// But if there aren't any results here, we'll have !$empty$ -> true
+		Select("1").
+		Where("log_id = main.log_id").
 		Where("user_owner_id = ?", userId)
 
-	err := k.db.Where("user_owner_id IS NULL").
-		Not("log_id IN (?)", subquery).
+	err := k.db.
+		Table("keys as main").
+		Where("user_owner_id IS NULL").
+		Where(encryption.Key{
+			UserGrant: userGrant.Types.GrantShared,
+		}).
+		Where("NOT EXISTS (?)", subquery).
 		Find(&keys).Error
 
 	return keys, err
+}
+
+func (k *keyRepository) GetUnacquiredSharedKey(userId uint, logId uint) (*encryption.Key, error) {
+	var key encryption.Key
+
+	subquery := k.db.Model(&encryption.Key{}).
+		// If we find a key already acquired for this log and user
+		// the not in the main query will return false (!"1" -> false)
+		// But if there aren't any results here, we'll have !$empty$ -> true
+		Select("1").
+		Where("log_id = ?", logId).
+		Where("user_owner_id = ?", userId)
+
+	err := k.db.
+		Table("keys as main").
+		Where("user_owner_id IS NULL").
+		Where(encryption.Key{
+			LogId:     &logId,
+			UserGrant: userGrant.Types.GrantShared,
+		}).
+		Where("NOT EXISTS (?)", subquery).
+		First(&key).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &key, nil
 }

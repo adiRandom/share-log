@@ -52,6 +52,8 @@ func (t TypeMap) GetByName(name string) *Type {
 	switch name {
 	case ownerType:
 		return &Types.GrantOwner
+	case sharedType:
+		return &Types.GrantShared
 	case clientType:
 		return &Types.GrantClient
 	}

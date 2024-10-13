@@ -33,22 +33,19 @@ type baseController struct {
 	authMiddleware  middleware.Auth
 	grantMiddleware middleware.Grant
 	userRepository  repository.UserRepository
+	keyManager      services.KeyManager
 }
 
 type BaseControllerProvider struct {
 }
 
 func (b BaseControllerProvider) Provide() any {
-	authService := di.Get[services.Auth]()
-	authMiddleware := di.Get[middleware.Auth]()
-	grantMiddleware := di.Get[middleware.Grant]()
-	userRepository := di.Get[repository.UserRepository]()
-
 	return &baseController{
-		authService:     authService,
-		authMiddleware:  authMiddleware,
-		userRepository:  userRepository,
-		grantMiddleware: grantMiddleware,
+		authService:     di.Get[services.Auth](),
+		authMiddleware:  di.Get[middleware.Auth](),
+		userRepository:  di.Get[repository.UserRepository](),
+		grantMiddleware: di.Get[middleware.Grant](),
+		keyManager:      di.Get[services.KeyManager](),
 	}
 }
 
@@ -63,7 +60,7 @@ func (b *baseController) GetUserSymmetricKey(c *gin.Context) string {
 		return ""
 	}
 
-	key, err := b.authService.GetUserSymmetricKey(*jwt.(*jwtLib.Token))
+	key, err := b.keyManager.GetUserSymmetricKey(*jwt.(*jwtLib.Token))
 	if err != nil {
 		c.Status(401)
 		return ""
