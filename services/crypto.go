@@ -36,6 +36,8 @@ type DecryptOptions struct {
 	Data            string
 	Usr             *models.User
 	UsrSymmetricKey string
+	OwnerLevelKey   *encryption.Key
+	ClientLevelKey  *encryption.Key
 }
 
 type Crypto interface {
@@ -98,6 +100,8 @@ func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
 			Data:            msg,
 			Usr:             opt.Usr,
 			UsrSymmetricKey: opt.UsrSymmetricKey,
+			ClientLevelKey:  opt.ClientLevelKey,
+			OwnerLevelKey:   opt.OwnerLevelKey,
 		}, level)
 		if err != nil {
 			return "", err
@@ -110,11 +114,17 @@ func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
 }
 
 func (c *crypto) decryptMessageForLevel(opt *DecryptOptions, level userGrant.Type) (string, error) {
-	// TODO: Get correct key for user level
+	var key *encryption.Key
+	if level == userGrant.Types.GrantOwner {
+		key = opt.OwnerLevelKey
+	} else if level == userGrant.Types.GrantClient {
+		key = opt.ClientLevelKey
+	}
 
-	key := lib.Find(opt.Usr.EncryptionKeys, func(key encryption.Key) bool {
-		return key.UserGrant == level
-	})
+	if key == nil {
+		return "", lib.Error{Msg: "No valid key to decrypt message"}
+	}
+
 	privateKey, err := key.PrivateKey.Key([]byte(opt.UsrSymmetricKey))
 	if err != nil {
 		return "", err

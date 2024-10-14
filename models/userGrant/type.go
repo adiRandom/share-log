@@ -14,16 +14,19 @@ type Type struct {
 const ownerType = "owner"
 const clientType = "client"
 const sharedType = "shared"
+const partialOwnerType = "partialOwner"
 
 type TypeMap struct {
-	GrantClient Type
-	GrantShared Type
-	GrantOwner  Type
+	GrantClient       Type
+	GrantShared       Type
+	GrantPartialOwner Type
+	GrantOwner        Type
 }
 
 var Types = TypeMap{
-	GrantOwner:  Type{ownerType, 100},
-	GrantShared: Type{sharedType, 10},
+	GrantOwner:        Type{ownerType, 100},
+	GrantPartialOwner: Type{partialOwnerType, 20},
+	GrantShared:       Type{sharedType, 10},
 	GrantClient: Type{
 		clientType,
 		0,
@@ -54,6 +57,8 @@ func (t TypeMap) GetByName(name string) *Type {
 		return &Types.GrantOwner
 	case sharedType:
 		return &Types.GrantShared
+	case partialOwnerType:
+		return &Types.GrantPartialOwner
 	case clientType:
 		return &Types.GrantClient
 	}

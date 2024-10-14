@@ -65,7 +65,7 @@ func (k *keyManager) AcquireSharedKey(
 	if err != nil {
 		return nil, err
 	}
-	acquiredKey, err := k.cryptoService.CreateEncryptionKey(pk, user.Grant, userSymmetricKey, user.EncryptionKeySalt)
+	acquiredKey, err := k.cryptoService.CreateEncryptionKey(pk, userGrant.Types.GrantPartialOwner, userSymmetricKey, user.EncryptionKeySalt)
 	if err != nil {
 		return nil, err
 	}

@@ -26,6 +26,7 @@ type KeyRepository interface {
 	GetJWEPrivateKey() (*rsa.PrivateKey, error)
 	GetUnacquiredSharedKey(userId uint, logId uint) (*encryption.Key, error)
 	GetUnacquiredSharedKeys(userId uint) ([]encryption.Key, error)
+	GetAcquiredSharedKeyForLogId(userId, logId uint) (*encryption.Key, error)
 }
 
 type KeyRepositoryProvider struct {
@@ -175,4 +176,14 @@ func (k *keyRepository) GetUnacquiredSharedKey(userId uint, logId uint) (*encryp
 	}
 
 	return &key, nil
+}
+
+func (k *keyRepository) GetAcquiredSharedKeyForLogId(userId, logId uint) (*encryption.Key, error) {
+	var key encryption.Key
+	err := k.db.Model(&encryption.Key{}).Where(encryption.Key{
+		LogId:       &logId,
+		UserOwnerId: &userId,
+	}).First(&key).Error
+
+	return &key, err
 }
