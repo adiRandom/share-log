@@ -46,6 +46,7 @@ type Crypto interface {
 	*/
 	EncryptOwnerLevel(data string) (string, error)
 	EncryptClientLevel(data string) (string, error)
+	EncryptMessage(data string, key *encryption.Key) (string, error)
 	/*
 		Decrypt a message using the passed options
 	*/
@@ -61,6 +62,7 @@ type Crypto interface {
 	*/
 	DecodeJwe(serializedJwe string) (string, error)
 	DeriveUserSymmetricKey(password string, salt string) string
+	DecryptMessageForLevel(opt *DecryptOptions, level userGrant.Type) (string, error)
 }
 
 type CryptoProvider struct {
@@ -92,11 +94,20 @@ func (c *crypto) EncryptClientLevel(data string) (string, error) {
 	return string(encryptedBytes), err
 }
 
+func (c *crypto) EncryptMessage(data string, key *encryption.Key) (string, error) {
+	if key == nil {
+		return "", lib.Error{Msg: "Invalid encryption key"}
+	}
+	publicKey := key.PublicKey
+	encryptedBytes, err := eciesgo.Encrypt(publicKey.Key, []byte(data))
+	return string(encryptedBytes), err
+}
+
 func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
 	levels := []userGrant.Type{userGrant.Types.GrantOwner, userGrant.Types.GrantClient}
 	msg := opt.Data
 	for _, level := range levels {
-		decryptedMsg, err := c.decryptMessageForLevel(&DecryptOptions{
+		decryptedMsg, err := c.DecryptMessageForLevel(&DecryptOptions{
 			Data:            msg,
 			Usr:             opt.Usr,
 			UsrSymmetricKey: opt.UsrSymmetricKey,
@@ -113,7 +124,7 @@ func (c *crypto) DecryptMessage(opt *DecryptOptions) (string, error) {
 	return msg, nil
 }
 
-func (c *crypto) decryptMessageForLevel(opt *DecryptOptions, level userGrant.Type) (string, error) {
+func (c *crypto) DecryptMessageForLevel(opt *DecryptOptions, level userGrant.Type) (string, error) {
 	var key *encryption.Key
 	if level == userGrant.Types.GrantOwner {
 		key = opt.OwnerLevelKey

@@ -41,6 +41,8 @@ type KeyManager interface {
 		symmetricKeySalt string,
 	) ([]encryption.Key, error)
 	GetUserSymmetricKey(jwt jwtLib.Token) (string, error)
+	// GetDecryptionKeysForLog Returns [ownerKey, clientKey] for a client grant user. T
+	GetDecryptionKeysForLog(user *models.User, logId uint) lib.Pair[*encryption.Key, *encryption.Key]
 }
 
 type KeyManagerProvider struct {
@@ -200,4 +202,47 @@ func (k *keyManager) CreateKeysForNewUser(
 func (k *keyManager) GetUserSymmetricKey(jwt jwtLib.Token) (string, error) {
 	claims := jwt.Claims.(*jwtClaims)
 	return k.DecodeUserSymmetricKeyForJWT(claims.EncodedSymmetricKey)
+}
+
+func (k *keyManager) GetDecryptionKeysForLog(user *models.User, logId uint) lib.Pair[*encryption.Key, *encryption.Key] {
+	if user.Grant == userGrant.Types.GrantOwner {
+		return k.getKeysForOwner(user)
+	} else if user.Grant == userGrant.Types.GrantClient {
+		return k.getKeysForClient(user, logId)
+	}
+
+	panic("Unknown user grant for decryption")
+}
+
+// Returns [ownerKey, clientKey] for an owner grant user
+func (k *keyManager) getKeysForOwner(user *models.User) lib.Pair[*encryption.Key, *encryption.Key] {
+	ownerKey := lib.Find(user.EncryptionKeys, func(key encryption.Key) bool {
+		return key.UserGrant == userGrant.Types.GrantOwner
+	})
+
+	clientKey := lib.Find(user.EncryptionKeys, func(key encryption.Key) bool {
+		return key.UserGrant == userGrant.Types.GrantClient
+	})
+
+	return lib.Pair[*encryption.Key, *encryption.Key]{
+		First:  ownerKey,
+		Second: clientKey,
+	}
+}
+
+// Returns [ownerKey, clientKey] for a client grant user. T
+// he owner key will be a shared key acquired by the user
+func (k *keyManager) getKeysForClient(user *models.User, logId uint) lib.Pair[*encryption.Key, *encryption.Key] {
+	ownerKey := lib.Find(user.EncryptionKeys, func(key encryption.Key) bool {
+		return key.UserGrant == userGrant.Types.GrantPartialOwner && *key.LogId == logId
+	})
+
+	clientKey := lib.Find(user.EncryptionKeys, func(key encryption.Key) bool {
+		return key.UserGrant == userGrant.Types.GrantClient
+	})
+
+	return lib.Pair[*encryption.Key, *encryption.Key]{
+		First:  ownerKey,
+		Second: clientKey,
+	}
 }

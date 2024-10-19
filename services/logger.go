@@ -12,6 +12,7 @@ import (
 
 type logger struct {
 	cryptoService Crypto
+	keyManager    KeyManager
 	keyRepository repository.KeyRepository
 	logRepository repository.LogRepository
 }
@@ -22,6 +23,7 @@ type Logger interface {
 	SavePlainLog(dto dto.Log)
 	HaveAccessToLog(id uint, user *models.User) (bool, error)
 	GetDecryptedLog(id uint, user *models.User, userSymmetricKey string) (*models.DecryptedLog, error)
+	CreateWithClientAccess(logId uint, user *models.User, userSymmetricKey string, sharedKey *encryption.Key) error
 }
 
 type LoggerProvider struct {
@@ -33,6 +35,8 @@ func (l LoggerProvider) Provide() any {
 	var instance Logger = &logger{
 		cryptoService: cryptoService,
 		logRepository: logRepository,
+		keyRepository: di.Get[repository.KeyRepository](),
+		keyManager:    di.Get[KeyManager](),
 	}
 	return instance
 }
@@ -93,19 +97,13 @@ func (l *logger) HaveAccessToLog(id uint, user *models.User) (bool, error) {
 }
 
 func (l *logger) GetDecryptedLog(id uint, user *models.User, userSymmetricKey string) (*models.DecryptedLog, error) {
-	log := l.logRepository.GetById(id)
+	log := l.getLogForUser(id, user.Grant)
 
 	if log == nil {
 		return nil, lib.Error{Msg: "No log with given id"}
 	}
 
-	var keys lib.Pair[*encryption.Key, *encryption.Key]
-
-	if user.Grant == userGrant.Types.GrantOwner {
-		keys = l.getKeysForOwner(user)
-	} else if user.Grant == userGrant.Types.GrantClient {
-		keys = l.getKeysForClient(user, id)
-	}
+	keys := l.keyManager.GetDecryptionKeysForLog(user, id)
 
 	ownerKey := keys.First
 	clientKey := keys.Second
@@ -124,35 +122,38 @@ func (l *logger) GetDecryptedLog(id uint, user *models.User, userSymmetricKey st
 	return models.NewDecryptedLog(stackTrace), nil
 }
 
-// Returns [ownerKey, clientKey] for an owner grant user
-func (l *logger) getKeysForOwner(user *models.User) lib.Pair[*encryption.Key, *encryption.Key] {
-	ownerKey := lib.Find(user.EncryptionKeys, func(key encryption.Key) bool {
-		return key.UserGrant == userGrant.Types.GrantOwner
-	})
-
-	clientKey := lib.Find(user.EncryptionKeys, func(key encryption.Key) bool {
-		return key.UserGrant == userGrant.Types.GrantClient
-	})
-
-	return lib.Pair[*encryption.Key, *encryption.Key]{
-		First:  ownerKey,
-		Second: clientKey,
+func (l *logger) getLogForUser(logId uint, grant userGrant.Type) *models.Log {
+	if grant == userGrant.Types.GrantOwner {
+		return l.logRepository.GetById(logId)
+	} else if grant == userGrant.Types.GrantClient {
+		return l.logRepository.GetByRefId(logId)
 	}
+
+	return nil
 }
 
-// Returns [ownerKey, clientKey] for a client grant user. T
-// he owner key will be a shared key acquired by the user
-func (l *logger) getKeysForClient(user *models.User, logId uint) lib.Pair[*encryption.Key, *encryption.Key] {
-	ownerKey := lib.Find(user.EncryptionKeys, func(key encryption.Key) bool {
-		return key.UserGrant == userGrant.Types.GrantPartialOwner && *key.LogId == logId
-	})
-
-	clientKey := lib.Find(user.EncryptionKeys, func(key encryption.Key) bool {
-		return key.UserGrant == userGrant.Types.GrantClient
-	})
-
-	return lib.Pair[*encryption.Key, *encryption.Key]{
-		First:  ownerKey,
-		Second: clientKey,
+func (l *logger) CreateWithClientAccess(logId uint, user *models.User, userSymmetricKey string, sharedKey *encryption.Key) error {
+	decryptedLog, err := l.GetDecryptedLog(logId, user, userSymmetricKey)
+	if err != nil {
+		return err
 	}
+
+	encryptedLog, err := l.cryptoService.EncryptClientLevel(decryptedLog.StackTrace)
+	if err != nil {
+		return err
+	}
+	doubleEncryptedLog, err := l.cryptoService.EncryptMessage(encryptedLog, sharedKey)
+
+	if err != nil {
+		return err
+	}
+
+	model := models.NewLog(doubleEncryptedLog)
+	model.RefLogId = logId
+	err = l.logRepository.Save(&model)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

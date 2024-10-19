@@ -14,11 +14,12 @@ type permissionRequest struct {
 	logPermissionRepository repository.LogPermissionRepository
 	cryptoService           Crypto
 	keyRepository           repository.KeyRepository
+	loggerService           Logger
 }
 
 type PermissionRequest interface {
 	RequestPermission(logId uint) error
-	ApprovePermission(request models.PermissionRequest) error
+	ApprovePermission(user *models.User, userSymmetricKey string, request models.PermissionRequest) error
 	DenyPermission(request models.PermissionRequest) error
 	ResetPermissionRequest(request models.PermissionRequest) error
 	GetPermissionRequests(user *models.User) ([]lib.Pair[models.PermissionRequest, bool], error)
@@ -35,6 +36,7 @@ func (l PermissionRequestProvider) Provide() any {
 		logPermissionRepository: logPermissionRepository,
 		cryptoService:           cryptoService,
 		keyRepository:           keyRepository,
+		loggerService:           di.Get[Logger](),
 	}
 	return instance
 }
@@ -48,9 +50,14 @@ func (p *permissionRequest) RequestPermission(logId uint) error {
 	return p.logPermissionRepository.Save(&request)
 }
 
-func (p *permissionRequest) ApprovePermission(request models.PermissionRequest) error {
+func (p *permissionRequest) ApprovePermission(user *models.User, userSymmetricKey string, request models.PermissionRequest) error {
 	salt := p.cryptoService.GenerateSalt()
 	key, err := p.cryptoService.CreateNewEncryptionKey(userGrant.Types.GrantShared, config.GetSecrets().LogSharingSecret, salt)
+	if err != nil {
+		return err
+	}
+
+	err = p.loggerService.CreateWithClientAccess(request.LogID, user, userSymmetricKey, key)
 	if err != nil {
 		return err
 	}

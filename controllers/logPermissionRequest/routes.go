@@ -91,7 +91,10 @@ func (l *controller) acceptPermissionRequest(c *gin.Context) {
 		return
 	}
 
-	err = l.permissionRequestService.ApprovePermission(*request)
+	user := l.GetUser(c)
+	userSymmetricKey := l.GetUserSymmetricKey(c)
+
+	err = l.permissionRequestService.ApprovePermission(user, userSymmetricKey, *request)
 	if err != nil {
 		c.JSON(500, models.GetResponse(dto.Error{
 			Code:    500,
