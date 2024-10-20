@@ -6,6 +6,7 @@ import (
 	"shareLog/di"
 	"shareLog/models"
 	"shareLog/models/dto"
+	"shareLog/models/userGrant"
 	"shareLog/services"
 )
 
@@ -33,15 +34,20 @@ func (l LogControllerProvider) Provide() any {
 }
 
 func (l *logController) LoadController(engine *gin.Engine) {
-	group := engine.Group("/log")
+	baseGroup := engine.Group("/log")
+	authGroup := engine.Group("/log")
 
-	l.WithAuth(group)
+	l.WithAuth(baseGroup)
 	{
-		group.POST("/", l.createLog)
-		group.GET("/:id", l.getLog)
+		baseGroup.POST("/", l.createLog)
+	}
 
+	l.WithAuth(authGroup)
+	l.WithMinGrant(authGroup, userGrant.Types.GrantClient)
+	{
+		authGroup.GET("/:id", l.getLog)
 		// TODO: Delete
-		group.POST("/test/", l.createLogFromPlain)
+		authGroup.POST("/test/", l.createLogFromPlain)
 	}
 }
 

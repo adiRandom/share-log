@@ -32,5 +32,6 @@ func getEntities() []interface{} {
 		&models.User{},
 		&models.Invite{},
 		&models.PermissionRequest{},
+		&models.ApiKey{},
 	}
 }

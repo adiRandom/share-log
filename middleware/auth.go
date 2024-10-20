@@ -2,14 +2,13 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"shareLog/constants"
 	"shareLog/data/repository"
 	"shareLog/di"
 	"shareLog/services"
 	"strings"
 )
-
-const tokenPrefix = "Bearer "
 
 type auth struct {
 	userRepository repository.UserRepository
@@ -18,7 +17,7 @@ type auth struct {
 }
 
 type Auth interface {
-	AuthUser(c *gin.Context)
+	DoAuth(c *gin.Context)
 }
 
 type AuthProvider struct {
@@ -39,32 +38,67 @@ func (p AuthProvider) Provide() any {
 	return &authMiddleware
 }
 
-func (a *auth) AuthUser(c *gin.Context) {
+func (a *auth) DoAuth(c *gin.Context) {
+	userAuthHeaderValue := c.GetHeader(constants.UserAuthHeader)
+	apiKeyAuthHeaderValue := c.GetHeader(constants.ApiKeyHeader)
 
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
+	var parsedJwt *jwt.Token
+	if userAuthHeaderValue != "" {
+		parsedJwt = a.authUser(userAuthHeaderValue, c)
+	} else if apiKeyAuthHeaderValue != "" {
+		parsedJwt = a.authApp(apiKeyAuthHeaderValue, c)
+	} else {
 		c.Status(401)
 		c.Abort()
 		return
 	}
 
-	jwe, _ := strings.CutPrefix(authHeader, tokenPrefix)
+	if parsedJwt == nil {
+		c.Status(401)
+		c.Abort()
+		return
+	}
+
+	c.Set(constants.ContextJWTKey, parsedJwt)
+	c.Next()
+}
+
+func (a *auth) authUser(authHeaderVal string, c *gin.Context) *jwt.Token {
+	jwe, _ := strings.CutPrefix(authHeaderVal, constants.TokenHeaderPrefix)
 
 	serializedJwt, err := a.cryptoService.DecodeJwe(jwe)
 	if err != nil {
 		c.Status(401)
 		c.Abort()
-		return
+		return nil
 	}
 
-	jwt, validationError := a.authService.ParseAndValidateJWT(serializedJwt)
+	parsedJwt, validationError := a.authService.ParseAndValidateJWT(serializedJwt)
 	if validationError != nil {
 		c.Status(401)
 		println(validationError)
 		c.Abort()
-		return
+		return nil
 	}
 
-	c.Set(constants.ContextJWTKey, jwt)
-	c.Next()
+	return parsedJwt
+}
+
+func (a *auth) authApp(jwe string, c *gin.Context) *jwt.Token {
+	serializedJwt, err := a.cryptoService.DecodeJwe(jwe)
+	if err != nil {
+		c.Status(401)
+		c.Abort()
+		return nil
+	}
+
+	parsedJwt, validationError := a.authService.ParseAndValidateJWT(serializedJwt)
+	if validationError != nil {
+		c.Status(401)
+		println(validationError)
+		c.Abort()
+		return nil
+	}
+
+	return parsedJwt
 }

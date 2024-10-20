@@ -18,6 +18,7 @@ type auth struct {
 	userRepository   repository.UserRepository
 	keyRepository    repository.KeyRepository
 	inviteRepository repository.InviteRepository
+	apiKeyRepository repository.ApiKeyRepository
 	mailer           Mailer
 	cryptoService    Crypto
 	keyManager       KeyManager
@@ -29,7 +30,9 @@ encoded in appended hex
 */
 type jwtClaims struct {
 	jwtLib.RegisteredClaims
+	Grant               string `json:"grant"`
 	EncodedSymmetricKey string `json:"userSymmetricKey"`
+	EncodedPubKey       string `json:"encodedPubKey"`
 }
 
 func (j jwtClaims) Validate() error {
@@ -40,11 +43,14 @@ func (j jwtClaims) Validate() error {
 type Auth interface {
 	ParseAndValidateJWT(signedJwt string) (*jwtLib.Token, error)
 	GetAuthUser(jwt jwtLib.Token) *models.User
-	GenerateAuthToken(user *models.User, password string) (*jose.JSONWebEncryption, error)
+	GenerateUserAuthToken(user *models.User, password string) (*jose.JSONWebEncryption, error)
+	GenerateAppAuthToken(apiKey models.ApiKey) (*jose.JSONWebEncryption, error)
 	SignUpWithEmail(email string, password string, code string, inviteId uint) (*models.User, error)
 	SignInWithEmail(email string, password string) (*models.User, error)
 	CreateUserInvite(grantType userGrant.Type, refUser *models.User, refUserSymmetricKey string) (*models.Invite, error)
 	SignUpFirstUser(email string, password string) (*models.User, error)
+	GenerateApiKey(user *models.User) (models.ApiKey, error)
+	GetAuthGrant(jwt jwtLib.Token) userGrant.Type
 }
 
 type AuthProvider struct {
@@ -55,6 +61,7 @@ func (p AuthProvider) Provide() any {
 		userRepository:   di.Get[repository.UserRepository](),
 		keyRepository:    di.Get[repository.KeyRepository](),
 		inviteRepository: di.Get[repository.InviteRepository](),
+		apiKeyRepository: di.Get[repository.ApiKeyRepository](),
 		cryptoService:    di.Get[Crypto](),
 		mailer:           di.Get[Mailer](),
 		keyManager:       di.Get[KeyManager](),
@@ -219,23 +226,46 @@ func (a *auth) CreateUserInvite(grantType userGrant.Type, refUser *models.User, 
 	return invite, nil
 }
 
-func (a *auth) GenerateAuthToken(user *models.User, password string) (*jose.JSONWebEncryption, error) {
+func (a *auth) GenerateUserAuthToken(user *models.User, password string) (*jose.JSONWebEncryption, error) {
 	userSymmetricKey := a.cryptoService.DeriveUserSymmetricKey(password, user.EncryptionKeySalt)
-	jwt := a.createJWT(user, userSymmetricKey)
+	jwt := a.createUserJWT(user, userSymmetricKey)
 	return a.cryptoService.CreateJwe(jwt)
 }
 
-func (a *auth) createJWT(user *models.User, userSymmetricKey string) *jwtLib.Token {
+func (a *auth) GenerateAppAuthToken(key models.ApiKey) (*jose.JSONWebEncryption, error) {
+	jwt := a.createAppJWT(key)
+	return a.cryptoService.CreateJwe(jwt)
+}
+
+func (a *auth) createUserJWT(user *models.User, userSymmetricKey string) *jwtLib.Token {
 	exp := time.Now().Add(time.Hour * 24)
 
 	claims := jwtClaims{
-		jwtLib.RegisteredClaims{
+		RegisteredClaims: jwtLib.RegisteredClaims{
 			Subject: strconv.Itoa(int(user.ID)),
 			ExpiresAt: &jwtLib.NumericDate{
 				Time: exp,
 			},
 		},
-		a.keyManager.EncodeUserSymmetricKeyForJWT([]byte(userSymmetricKey)),
+		Grant:               user.Grant.Name,
+		EncodedSymmetricKey: a.keyManager.EncodeEncryptionKeyForJWT([]byte(userSymmetricKey)),
+	}
+
+	signingMethod := jwtLib.SigningMethodES512
+
+	return jwtLib.NewWithClaims(signingMethod, claims)
+}
+func (a *auth) createAppJWT(key models.ApiKey) *jwtLib.Token {
+	exp := time.Now().Add(time.Hour * 24)
+
+	claims := jwtClaims{
+		RegisteredClaims: jwtLib.RegisteredClaims{
+			ExpiresAt: &jwtLib.NumericDate{
+				Time: exp,
+			},
+		},
+		Grant:         userGrant.Types.GrantApp.Name,
+		EncodedPubKey: key.EncryptionKey.PublicKey.Key.Hex(true),
 	}
 
 	signingMethod := jwtLib.SigningMethodES512
@@ -258,4 +288,28 @@ func (a *auth) SignUpFirstUser(email string, password string) (*models.User, err
 	keys := []encryption.Key{*ownerKey, *clientKey}
 
 	return a.signUpUserWithKeys(email, password, keys, keySalt, userGrant.Types.GrantOwner)
+}
+
+func (a *auth) GenerateApiKey(user *models.User) (models.ApiKey, error) {
+	apiKey := a.cryptoService.GenerateSalt()
+	encryptionKey := lib.Find(user.EncryptionKeys, func(key encryption.Key) bool {
+		return key.UserGrant == userGrant.Types.GrantClient
+	})
+
+	apiKeyModel := models.ApiKey{
+		Key:             apiKey,
+		EncryptionKey:   encryptionKey,
+		EncryptionKeyId: encryptionKey.ID,
+	}
+	err := a.apiKeyRepository.Save(&apiKeyModel)
+	if err != nil {
+		return apiKeyModel, err
+	}
+
+	return apiKeyModel, nil
+}
+
+func (a *auth) GetAuthGrant(jwt jwtLib.Token) userGrant.Type {
+	claims := jwt.Claims.(*jwtClaims)
+	return *userGrant.Types.GetByName(claims.Grant)
 }

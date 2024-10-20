@@ -26,8 +26,8 @@ type KeyManager interface {
 		userSymmetricKey string,
 		saveToDb bool,
 	) (*encryption.Key, error)
-	EncodeUserSymmetricKeyForJWT(userSymmetricKey []byte) string
-	DecodeUserSymmetricKeyForJWT(userSymmetricKey string) (string, error)
+	EncodeEncryptionKeyForJWT(userSymmetricKey []byte) string
+	DecodeEncryptionKeyForJWT(userSymmetricKey string) (string, error)
 	GetKeysForInvite(
 		refUser *models.User,
 		refUserSymmetricKey string,
@@ -110,7 +110,7 @@ func (k *keyManager) AcquireSharedKeys(user *models.User, password string, salt 
 	return acquiredPks, nil
 }
 
-func (k *keyManager) EncodeUserSymmetricKeyForJWT(userSymmetricKey []byte) string {
+func (k *keyManager) EncodeEncryptionKeyForJWT(userSymmetricKey []byte) string {
 	encoded := ""
 	for _, b := range userSymmetricKey {
 		// Convert each byte in a hex form
@@ -120,7 +120,7 @@ func (k *keyManager) EncodeUserSymmetricKeyForJWT(userSymmetricKey []byte) strin
 	return encoded
 }
 
-func (k *keyManager) DecodeUserSymmetricKeyForJWT(userSymmetricKey string) (string, error) {
+func (k *keyManager) DecodeEncryptionKeyForJWT(userSymmetricKey string) (string, error) {
 	byteLen := len(userSymmetricKey) / 2
 	bytes := make([]byte, byteLen)
 
@@ -201,7 +201,7 @@ func (k *keyManager) CreateKeysForNewUser(
 
 func (k *keyManager) GetUserSymmetricKey(jwt jwtLib.Token) (string, error) {
 	claims := jwt.Claims.(*jwtClaims)
-	return k.DecodeUserSymmetricKeyForJWT(claims.EncodedSymmetricKey)
+	return k.DecodeEncryptionKeyForJWT(claims.EncodedSymmetricKey)
 }
 
 func (k *keyManager) GetDecryptionKeysForLog(user *models.User, logId uint) lib.Pair[*encryption.Key, *encryption.Key] {

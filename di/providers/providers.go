@@ -33,4 +33,5 @@ func InitDi() {
 	diLib.RegisterProvider[services.PermissionRequest](di.Container, services.PermissionRequestProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[services.Mailer](di.Container, services.MailerProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[services.KeyManager](di.Container, services.KeyManagerProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[repository.ApiKeyRepository](di.Container, repository.ApiKeyRepositoryProvider{}, diLib.SingletonProvider)
 }

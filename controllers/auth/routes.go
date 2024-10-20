@@ -35,8 +35,16 @@ func (a *authController) LoadController(engine *gin.Engine) {
 
 	invite := engine.Group("/auth/invite")
 	a.WithAuth(invite)
+	a.WithMinGrant(invite, userGrant.Types.GrantClient)
 	{
 		invite.POST("/", a.inviteUser)
+	}
+
+	api := engine.Group("/auth/api")
+	a.WithAuth(api)
+	a.WithMinGrant(api, userGrant.Types.GrantClient)
+	{
+		api.POST("/", a.generateApiKey)
 	}
 }
 
@@ -87,7 +95,7 @@ func (a *authController) userAlreadyExists(c *gin.Context, email string) (bool, 
 }
 
 func (a *authController) getAuthToken(user *models.User, password string) (*string, error) {
-	token, err := a.authService.GenerateAuthToken(user, password)
+	token, err := a.authService.GenerateUserAuthToken(user, password)
 	if err != nil {
 		return nil, err
 	}
@@ -193,29 +201,97 @@ func (a *authController) signUpFirstUser(c *gin.Context) {
 	c.JSON(200, models.GetResponse(response))
 }
 
-func (a *authController) signIn(c *gin.Context) {
+func (a *authController) shouldDoApiKeyAuth(c *gin.Context) bool {
+	apiKey, _ := a.GetApiKey(c)
+	return apiKey != nil
+}
+
+// Return the auth token for this user
+func (a *authController) signInUser(c *gin.Context) (string, error) {
 	loginDto := dto.Login{}
 	err := c.BindJSON(&loginDto)
 	if err != nil {
 		c.Status(400)
-		return
+		return "", err
 	}
 
 	user, err := a.authService.SignInWithEmail(loginDto.Email, loginDto.Password)
 	if err != nil {
 		c.JSON(403, models.GetResponse(dto.Error{Code: 403, Message: "Wrong credentials"}))
-		return
+		return "", err
 	}
 
 	token, err := a.getAuthToken(user, loginDto.Password)
 	if err != nil {
 		c.Status(500)
-		return
+		return "", err
 	}
 
-	response := dto.SignInResponse{
-		Token: *token,
+	return *token, nil
+}
+
+// Return the auth token for this app
+func (a *authController) signInAppClient(c *gin.Context) (string, error) {
+	apiKey, err := a.GetApiKey(c)
+	if err != nil {
+		return "", err
+	}
+
+	token, err := a.authService.GenerateAppAuthToken(*apiKey)
+	if err != nil {
+		c.Status(500)
+		return "", err
+	}
+
+	serializedToken, err := token.CompactSerialize()
+	if err != nil {
+		c.Status(500)
+		return "", err
+	}
+
+	return serializedToken, nil
+}
+
+func (a *authController) signIn(c *gin.Context) {
+	var response dto.SignInResponse
+	if a.shouldDoApiKeyAuth(c) {
+		token, err := a.signInAppClient(c)
+		if err != nil {
+			return
+		}
+
+		response = dto.SignInResponse{
+			Token: token,
+		}
+	} else {
+		token, err := a.signInUser(c)
+		if err != nil {
+			return
+		}
+
+		response = dto.SignInResponse{
+			Token: token,
+		}
 	}
 
 	c.JSON(200, models.GetResponse(response))
+}
+
+func (a *authController) generateApiKey(context *gin.Context) {
+	user := a.GetUser(context)
+	if user == nil {
+		return
+	}
+
+	apiKey, err := a.authService.GenerateApiKey(user)
+	if err != nil {
+		context.JSON(500, models.GetResponse(dto.Error{Code: 500, Message: err.Error()}))
+		return
+	}
+
+	apiKeyDto := dto.ApiKey{
+		Key: apiKey.Key,
+	}
+
+	context.JSON(200, models.GetResponse(apiKeyDto))
 }

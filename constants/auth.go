@@ -1,3 +1,7 @@
 package constants
 
-const ContextJWTKey = "userGrant"
+const ContextJWTKey = "jwt"
+
+const TokenHeaderPrefix = "Bearer "
+const UserAuthHeader = "Authorization"
+const ApiKeyHeader = "ApiKey"
