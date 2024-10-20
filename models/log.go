@@ -13,7 +13,7 @@ Log is a struct that represents a log in the database.
 type Log struct {
 	gorm.Model
 	DoubleEncryptedStackTrace string
-	RefLogId                  uint
+	RefLogId                  *uint
 	RefLog                    *Log `gorm:"foreignKey:RefLogId;constraint:OnDelete:CASCADE"`
 }
 
