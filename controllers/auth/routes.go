@@ -78,7 +78,7 @@ func (a *authController) inviteUser(c *gin.Context) {
 	userGrantType := userGrant.Types.GetByName(createInviteDto.Grant)
 
 	invite, _ := a.authService.CreateUserInvite(*userGrantType, user, a.GetUserSymmetricKey(c))
-	c.JSON(200, models.GetResponse(invite.ToDto()))
+	c.JSON(200, models.GetResponse(invite.ToDto(), nil))
 }
 
 func (a *authController) userAlreadyExists(c *gin.Context, email string) (bool, error) {
@@ -87,7 +87,7 @@ func (a *authController) userAlreadyExists(c *gin.Context, email string) (bool, 
 		c.Status(403)
 		return true, nil
 	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		c.JSON(500, models.GetResponse(dto.Error{Code: 500, Message: err.Error()}))
+		c.JSON(500, models.GetResponse(nil, &dto.Error{Code: 500, Message: err.Error()}))
 		return false, err
 	}
 
@@ -116,10 +116,10 @@ func (a *authController) doSignupValidations(c *gin.Context, email, password str
 
 	passwordErrors := lib.IsPasswordValid(password)
 	if len(passwordErrors) != 0 {
-		mappedErrors := lib.Map(passwordErrors, func(err lib.PasswordError) string {
-			return err.Message()
-		})
-		c.JSON(400, models.GetResponse(mappedErrors))
+		reason := lib.Reduce(passwordErrors, func(acc string, err lib.PasswordError) string {
+			return acc + "\n" + err.Message()
+		}, "")
+		c.JSON(400, models.GetResponse(nil, &dto.Error{Code: 400, Message: reason}))
 		return false
 	}
 
@@ -155,7 +155,7 @@ func (a *authController) signUp(c *gin.Context) {
 		Token: *token,
 	}
 
-	c.JSON(200, models.GetResponse(response))
+	c.JSON(200, models.GetResponse(response, nil))
 }
 
 func (a *authController) signUpFirstUser(c *gin.Context) {
@@ -198,7 +198,7 @@ func (a *authController) signUpFirstUser(c *gin.Context) {
 		Token: *token,
 	}
 
-	c.JSON(200, models.GetResponse(response))
+	c.JSON(200, models.GetResponse(response, nil))
 }
 
 func (a *authController) shouldDoApiKeyAuth(c *gin.Context) bool {
@@ -217,7 +217,7 @@ func (a *authController) signInUser(c *gin.Context) (string, error) {
 
 	user, err := a.authService.SignInWithEmail(loginDto.Email, loginDto.Password)
 	if err != nil {
-		c.JSON(403, models.GetResponse(dto.Error{Code: 403, Message: "Wrong credentials"}))
+		c.JSON(403, models.GetResponse(nil, &dto.Error{Code: 403, Message: "Wrong credentials"}))
 		return "", err
 	}
 
@@ -274,7 +274,7 @@ func (a *authController) signIn(c *gin.Context) {
 		}
 	}
 
-	c.JSON(200, models.GetResponse(response))
+	c.JSON(200, models.GetResponse(response, nil))
 }
 
 func (a *authController) generateApiKey(context *gin.Context) {
@@ -285,7 +285,7 @@ func (a *authController) generateApiKey(context *gin.Context) {
 
 	apiKey, err := a.authService.GenerateApiKey(user)
 	if err != nil {
-		context.JSON(500, models.GetResponse(dto.Error{Code: 500, Message: err.Error()}))
+		context.JSON(500, models.GetResponse(nil, &dto.Error{Code: 500, Message: err.Error()}))
 		return
 	}
 
@@ -293,5 +293,5 @@ func (a *authController) generateApiKey(context *gin.Context) {
 		Key: apiKey.Key,
 	}
 
-	context.JSON(200, models.GetResponse(apiKeyDto))
+	context.JSON(200, models.GetResponse(apiKeyDto, nil))
 }

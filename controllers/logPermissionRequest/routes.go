@@ -69,7 +69,7 @@ func (l *controller) requestPermission(c *gin.Context) {
 
 	err = l.permissionRequestService.RequestPermission(logId)
 	if err != nil {
-		c.JSON(500, models.GetResponse(dto.Error{
+		c.JSON(500, models.GetResponse(nil, &dto.Error{
 			Code:    500,
 			Message: err.Error(),
 		}))
@@ -96,7 +96,7 @@ func (l *controller) acceptPermissionRequest(c *gin.Context) {
 
 	err = l.permissionRequestService.ApprovePermission(user, userSymmetricKey, *request)
 	if err != nil {
-		c.JSON(500, models.GetResponse(dto.Error{
+		c.JSON(500, models.GetResponse(nil, &dto.Error{
 			Code:    500,
 			Message: err.Error(),
 		}))
@@ -120,7 +120,7 @@ func (l *controller) denyPermissionRequest(c *gin.Context) {
 
 	err = l.permissionRequestService.DenyPermission(*request)
 	if err != nil {
-		c.JSON(500, models.GetResponse(dto.Error{
+		c.JSON(500, models.GetResponse(nil, &dto.Error{
 			Code:    500,
 			Message: err.Error(),
 		}))
@@ -144,7 +144,7 @@ func (l *controller) resetPermissionRequest(c *gin.Context) {
 
 	err = l.permissionRequestService.ResetPermissionRequest(*request)
 	if err != nil {
-		c.JSON(500, models.GetResponse(dto.Error{
+		c.JSON(500, models.GetResponse(nil, &dto.Error{
 			Code:    500,
 			Message: err.Error(),
 		}))
@@ -172,7 +172,7 @@ func (l *controller) getPermissionRequests(c *gin.Context) {
 		}
 	})
 
-	c.JSON(200, models.GetResponse(responseModel))
+	c.JSON(200, models.GetResponse(responseModel, nil))
 }
 
 func (l *controller) acquireSharedKey(c *gin.Context) {
@@ -192,7 +192,7 @@ func (l *controller) acquireSharedKey(c *gin.Context) {
 	_, err = l.keyManager.AcquireSharedKey(user, sharedKey, userSymmetricKey, true)
 
 	if err != nil {
-		c.JSON(500, models.GetResponse(dto.Error{Code: 500, Message: err.Error()}))
+		c.JSON(500, models.GetResponse(nil, &dto.Error{Code: 500, Message: err.Error()}))
 		return
 	}
 

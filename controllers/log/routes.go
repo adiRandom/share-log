@@ -55,7 +55,7 @@ func (l *logController) createLog(c *gin.Context) {
 	var logDto dto.Log
 	err := c.BindJSON(&logDto)
 	if err != nil {
-		c.JSON(400, models.GetResponse(dto.Error{
+		c.JSON(400, models.GetResponse(nil, &dto.Error{
 			Code:    400,
 			Message: err.Error()}))
 		return
@@ -63,7 +63,7 @@ func (l *logController) createLog(c *gin.Context) {
 
 	_, err = l.logService.SaveLog(logDto)
 	if err != nil {
-		c.JSON(500, models.GetResponse(dto.Error{
+		c.JSON(500, models.GetResponse(nil, &dto.Error{
 			Code:    500,
 			Message: err.Error()}))
 		return
@@ -93,7 +93,7 @@ func (l *logController) getLog(c *gin.Context) {
 	userSymmetricKey := l.GetUserSymmetricKey(c)
 	decryptedLog, err := l.logService.GetDecryptedLog(logId, user, userSymmetricKey)
 	if err != nil {
-		c.JSON(500, models.GetResponse(dto.Error{
+		c.JSON(500, models.GetResponse(nil, &dto.Error{
 			Code:    500,
 			Message: err.Error(),
 		}))
@@ -102,14 +102,14 @@ func (l *logController) getLog(c *gin.Context) {
 
 	c.JSON(200, models.GetResponse(dto.DecryptedLog{
 		StackTrace: decryptedLog.StackTrace,
-	}))
+	}, nil))
 }
 
 func (l *logController) createLogFromPlain(c *gin.Context) {
 	var logDto dto.Log
 	err := c.BindJSON(&logDto)
 	if err != nil {
-		c.JSON(400, models.GetResponse(dto.Error{
+		c.JSON(400, models.GetResponse(nil, &dto.Error{
 			Code:    400,
 			Message: err.Error()}))
 		return

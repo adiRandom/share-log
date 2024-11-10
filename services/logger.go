@@ -149,7 +149,7 @@ func (l *logger) CreateWithClientAccess(logId uint, user *models.User, userSymme
 	}
 
 	model := models.NewLog(doubleEncryptedLog)
-	model.RefLogId = logId
+	model.RefLogId = &logId
 	err = l.logRepository.Save(&model)
 	if err != nil {
 		return err

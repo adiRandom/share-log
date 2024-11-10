@@ -115,7 +115,7 @@ func (b *baseController) GetUIntParam(c *gin.Context, paramName string) (uint, e
 	paramString := c.Param(paramName)
 	paramInt64, err := strconv.ParseInt(paramString, 10, 64)
 	if err != nil {
-		c.JSON(400, models.GetResponse(dto.Error{
+		c.JSON(400, models.GetResponse(nil, &dto.Error{
 			Code:    400,
 			Message: "Malformed URL",
 		}))

@@ -29,7 +29,7 @@ func (r *baseRepository[T]) GetByRefId(logId uint) *T {
 	db := r.getDb()
 	var result T
 	err := db.First(&result, models.Log{
-		RefLogId: logId,
+		RefLogId: &logId,
 	}).Error
 
 	if err != nil {
