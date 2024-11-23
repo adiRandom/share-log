@@ -19,8 +19,6 @@ type logger struct {
 
 type Logger interface {
 	SaveLog(dto dto.Log) (*models.Log, error)
-	// TODO: Delete
-	SavePlainLog(dto dto.Log)
 	HaveAccessToLog(id uint, user *models.User) (bool, error)
 	GetDecryptedLog(id uint, user *models.User, userSymmetricKey string) (*models.DecryptedLog, error)
 	CreateWithClientAccess(logId uint, user *models.User, userSymmetricKey string, sharedKey *encryption.Key) error
@@ -42,7 +40,11 @@ func (l LoggerProvider) Provide() any {
 }
 
 func (l *logger) SaveLog(dto dto.Log) (*models.Log, error) {
-	doubleEncryptedLog, err := l.cryptoService.EncryptOwnerLevel(dto.ClientEncryptedStackTrace)
+	encryptedLog, err := l.cryptoService.EncryptClientLevel(dto.StackTrace)
+	if err != nil {
+		return nil, err
+	}
+	doubleEncryptedLog, err := l.cryptoService.EncryptOwnerLevel(encryptedLog)
 
 	if err != nil {
 		return nil, err
@@ -55,27 +57,6 @@ func (l *logger) SaveLog(dto dto.Log) (*models.Log, error) {
 	}
 
 	return &model, nil
-}
-
-// TODO: Delete
-func (l *logger) SavePlainLog(dto dto.Log) {
-	encryptedLog, err := l.cryptoService.EncryptClientLevel(dto.ClientEncryptedStackTrace)
-	if err != nil {
-		return
-	}
-	doubleEncryptedLog, err := l.cryptoService.EncryptOwnerLevel(encryptedLog)
-
-	if err != nil {
-		return
-	}
-
-	model := models.NewLog(doubleEncryptedLog)
-	err = l.logRepository.Save(&model)
-	if err != nil {
-		return
-	}
-
-	return
 }
 
 func (l *logger) HaveAccessToLog(id uint, user *models.User) (bool, error) {

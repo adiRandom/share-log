@@ -46,8 +46,6 @@ func (l *logController) LoadController(engine *gin.Engine) {
 	l.WithMinGrant(authGroup, userGrant.Types.GrantClient)
 	{
 		authGroup.GET("/:id", l.getLog)
-		// TODO: Delete
-		authGroup.POST("/test/", l.createLogFromPlain)
 	}
 }
 
@@ -100,22 +98,7 @@ func (l *logController) getLog(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, models.GetResponse(dto.DecryptedLog{
+	c.JSON(200, models.GetResponse(dto.Log{
 		StackTrace: decryptedLog.StackTrace,
 	}, nil))
-}
-
-func (l *logController) createLogFromPlain(c *gin.Context) {
-	var logDto dto.Log
-	err := c.BindJSON(&logDto)
-	if err != nil {
-		c.JSON(400, models.GetResponse(nil, &dto.Error{
-			Code:    400,
-			Message: err.Error()}))
-		return
-	}
-
-	l.logService.SavePlainLog(logDto)
-
-	c.Status(201)
 }
