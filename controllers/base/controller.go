@@ -128,6 +128,9 @@ func (b *baseController) GetUIntParam(c *gin.Context, paramName string) (uint, e
 
 func (b *baseController) GetApiKey(c *gin.Context) (*models.ApiKey, error) {
 	apiKey := c.GetHeader(constants.ApiKeyHeader)
+	if apiKey == "" {
+		return nil, lib.Error{Msg: "No api key provided"}
+	}
 	apiKeyModel := b.apiKeyRepository.GetByKey(apiKey)
 	if apiKeyModel == nil {
 		return nil, lib.Error{Msg: "API key not found"}

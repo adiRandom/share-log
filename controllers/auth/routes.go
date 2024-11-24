@@ -230,48 +230,14 @@ func (a *authController) signInUser(c *gin.Context) (string, error) {
 	return *token, nil
 }
 
-// Return the auth token for this app
-func (a *authController) signInAppClient(c *gin.Context) (string, error) {
-	apiKey, err := a.GetApiKey(c)
-	if err != nil {
-		return "", err
-	}
-
-	token, err := a.authService.GenerateAppAuthToken(*apiKey)
-	if err != nil {
-		c.Status(500)
-		return "", err
-	}
-
-	serializedToken, err := token.CompactSerialize()
-	if err != nil {
-		c.Status(500)
-		return "", err
-	}
-
-	return serializedToken, nil
-}
-
 func (a *authController) signIn(c *gin.Context) {
-	var response dto.SignInResponse
-	if a.shouldDoApiKeyAuth(c) {
-		token, err := a.signInAppClient(c)
-		if err != nil {
-			return
-		}
+	token, err := a.signInUser(c)
+	if err != nil {
+		return
+	}
 
-		response = dto.SignInResponse{
-			Token: token,
-		}
-	} else {
-		token, err := a.signInUser(c)
-		if err != nil {
-			return
-		}
-
-		response = dto.SignInResponse{
-			Token: token,
-		}
+	response := dto.SignInResponse{
+		Token: token,
 	}
 
 	c.JSON(200, models.GetResponse(response, nil))

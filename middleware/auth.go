@@ -84,21 +84,14 @@ func (a *auth) authUser(authHeaderVal string, c *gin.Context) *jwt.Token {
 	return parsedJwt
 }
 
-func (a *auth) authApp(jwe string, c *gin.Context) *jwt.Token {
-	serializedJwt, err := a.cryptoService.DecodeJwe(jwe)
+func (a *auth) authApp(apiKey string, c *gin.Context) *jwt.Token {
+	appJwt, err := a.authService.GenerateAppAuthToken(apiKey)
+
 	if err != nil {
 		c.Status(401)
 		c.Abort()
 		return nil
 	}
 
-	parsedJwt, validationError := a.authService.ParseAndValidateJWT(serializedJwt)
-	if validationError != nil {
-		c.Status(401)
-		println(validationError)
-		c.Abort()
-		return nil
-	}
-
-	return parsedJwt
+	return appJwt
 }

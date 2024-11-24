@@ -44,7 +44,7 @@ type Auth interface {
 	ParseAndValidateJWT(signedJwt string) (*jwtLib.Token, error)
 	GetAuthUser(jwt jwtLib.Token) *models.User
 	GenerateUserAuthToken(user *models.User, password string) (*jose.JSONWebEncryption, error)
-	GenerateAppAuthToken(apiKey models.ApiKey) (*jose.JSONWebEncryption, error)
+	GenerateAppAuthToken(apiKey string) (*jwtLib.Token, error)
 	SignUpWithEmail(email string, password string, code string, inviteId uint) (*models.User, error)
 	SignInWithEmail(email string, password string) (*models.User, error)
 	CreateUserInvite(grantType userGrant.Type, refUser *models.User, refUserSymmetricKey string) (*models.Invite, error)
@@ -232,9 +232,14 @@ func (a *auth) GenerateUserAuthToken(user *models.User, password string) (*jose.
 	return a.cryptoService.CreateJwe(jwt)
 }
 
-func (a *auth) GenerateAppAuthToken(key models.ApiKey) (*jose.JSONWebEncryption, error) {
-	jwt := a.createAppJWT(key)
-	return a.cryptoService.CreateJwe(jwt)
+func (a *auth) GenerateAppAuthToken(apiKey string) (*jwtLib.Token, error) {
+	// Check if api key is valid
+	apiKeyModel := a.apiKeyRepository.GetByKey(apiKey)
+	if apiKeyModel == nil {
+		return nil, lib.Error{Msg: "Invalid api key"}
+	}
+
+	return a.createAppJWT(*apiKeyModel), nil
 }
 
 func (a *auth) createUserJWT(user *models.User, userSymmetricKey string) *jwtLib.Token {
