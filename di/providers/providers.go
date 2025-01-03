@@ -4,6 +4,7 @@ import (
 	"gorm.io/gorm"
 	"shareLog/controllers/auth"
 	"shareLog/controllers/base"
+	"shareLog/controllers/config"
 	"shareLog/controllers/log"
 	"shareLog/controllers/logPermissionRequest"
 	"shareLog/data"
@@ -34,4 +35,5 @@ func InitDi() {
 	diLib.RegisterProvider[services.Mailer](di.Container, services.MailerProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[services.KeyManager](di.Container, services.KeyManagerProvider{}, diLib.SingletonProvider)
 	diLib.RegisterProvider[repository.ApiKeyRepository](di.Container, repository.ApiKeyRepositoryProvider{}, diLib.SingletonProvider)
+	diLib.RegisterProvider[config.Controller](di.Container, config.ControllerProvider{}, diLib.SingletonProvider, diLib.Binding[base.LoadableController]{})
 }

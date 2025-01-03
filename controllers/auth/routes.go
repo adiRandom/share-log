@@ -173,7 +173,7 @@ func (a *authController) signUpFirstUser(c *gin.Context) {
 	}
 
 	if userCount != 0 {
-		c.Status(401)
+		c.Status(403)
 		return
 	}
 
